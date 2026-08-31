@@ -10,6 +10,7 @@ import {
   isToolUIPart,
   stepCountIs,
   streamText,
+  type LanguageModelUsage,
   type StopCondition,
   type UIMessage,
 } from "ai";
@@ -20,6 +21,7 @@ import { APP_CONSTANTS } from "@/lib/constants";
 import { AgentChatRequestSchema } from "@/models/agent.schema";
 import {
   AGENT_CHAT_SYSTEM_PROMPT,
+  AGENT_PASTE_ONLY_USER_MESSAGE,
   buildPageContextMessage,
   buildPasteContextMessage,
 } from "@/lib/agent/prompt";
@@ -30,10 +32,19 @@ import {
 } from "@/lib/agent/paste";
 import { truncateForModel } from "@/lib/agent/paste.server";
 import { buildAgentTools } from "@/lib/agent/tools";
+import { measureTurnPrefix, type TurnPrefixMetrics } from "@/lib/agent/turnMetrics";
 import { mapAgentError } from "@/lib/agent/errors";
 import { getUserSettings } from "@/actions/userSettings.actions";
 import { saveChatConversation } from "@/actions/agentChat.actions";
 import { AiProvider } from "@/models/ai.model";
+import {
+  genAiRequestAttrs,
+  genAiResponseAttrs,
+  log,
+  runInSpan,
+  startSpan,
+  SURFACES,
+} from "@/lib/telemetry";
 import { addJobSettled, AGENT_CHAT_TERMINAL_TOOLS } from "@/models/agent.model";
 
 // The one terminal tool whose stop condition is not "was it called" — see
@@ -44,7 +55,7 @@ const addJobSettledStop: StopCondition<any> = ({ steps }) =>
 // One structured line per turn. Sizes and outcomes only — never the pasted
 // posting and never the extracted arguments.
 function logTurn(fields: Record<string, unknown>) {
-  console.info("[agent-chat]", JSON.stringify(fields));
+  log.info("[agent-chat] turn", fields);
 }
 
 function outcomeOf(message: UIMessage | undefined): {
@@ -147,11 +158,22 @@ export const POST = async (req: NextRequest) => {
   // and the paste part is not a model part, so the message converts to empty
   // content. Ollama rejects the whole request on it (its content field is a
   // string; the provider serializes empty content as []), and it keeps doing
-  // so on every later turn while the shell stays in the window. The paste
-  // context message below is what actually carries the posting.
-  modelMessages = modelMessages.filter(
-    (message) => !(Array.isArray(message.content) && message.content.length === 0),
-  );
+  // so on every later turn while the shell stays in the window.
+  //
+  // It is given a body rather than dropped. Dropping it removed a user turn
+  // that really happened, which moved the last-user-message boundary back
+  // over an older assistant reply — and DeepSeek's thinking mode requires
+  // reasoning_content on every assistant message after that boundary, so a
+  // reasoning-free reply from two turns ago 400'd the whole request. No
+  // provider is special-cased here: the transcript is simply true again.
+  // The paste context message below is what actually carries the posting.
+  modelMessages = modelMessages.flatMap((message) => {
+    if (!(Array.isArray(message.content) && message.content.length === 0)) {
+      return [message];
+    }
+    if (message.role !== "user") return [];
+    return [{ role: "user" as const, content: AGENT_PASTE_ONLY_USER_MESSAGE }];
+  });
 
   // Injected only on the turn that introduced the paste. On the approval POST
   // the last message is the assistant's, so nothing is re-injected — and the
@@ -178,14 +200,46 @@ export const POST = async (req: NextRequest) => {
     AbortSignal.timeout(APP_CONSTANTS.AGENT_CHAT_TIMEOUT_MS),
   ]);
 
+  // Written inside execute, read in onFinish, which runs after it.
+  let prefixMetrics: TurnPrefixMetrics | undefined;
+
+  // Written by streamText's own onFinish, read in the outer onFinish. Must be
+  // totalUsage, not one step's usage: stopWhen permits AGENT_CHAT_MAX_STEPS.
+  let turnUsage: LanguageModelUsage | undefined;
+  let turnFinishReason: string | undefined;
+
+  const turnSpan = startSpan("agent.chat.turn", {
+    ...genAiRequestAttrs({
+      provider,
+      model: modelName,
+      temperature: TEMPERATURES.ANALYSIS,
+      numCtx: APP_CONSTANTS.AGENT_CHAT_NUM_CTX,
+      surface: SURFACES.AGENT_CHAT,
+      system: AGENT_CHAT_SYSTEM_PROMPT,
+      prompt: modelMessages,
+    }),
+    "jobsync.user_id": userId,
+  });
+
+  // toUIMessageStream maps and logs a stream failure, then the SDK re-wraps
+  // the mapped string as an Error and hands it to createUIMessageStream's
+  // onError, which would map and log the same failure a second time. Passing
+  // an already-mapped string straight back keeps it to one line per failure.
+  const alreadyMapped = new Set<string>();
+  const mapTurnError = (error: unknown): string =>
+    runInSpan(turnSpan, () => {
+      const message = error instanceof Error ? error.message : "";
+      if (alreadyMapped.has(message)) return message;
+      const mapped = mapAgentError(error, errorContext);
+      alreadyMapped.add(mapped);
+      return mapped;
+    });
+
   const stream = createUIMessageStream({
     originalMessages: messages,
-    execute: ({ writer }) => {
-      const result = streamText({
-        model,
-        system: AGENT_CHAT_SYSTEM_PROMPT,
-        messages: modelMessages,
-        tools: buildAgentTools({
+    execute: ({ writer }) =>
+      runInSpan(turnSpan, () => {
+        const tools = buildAgentTools({
           userId,
           pastedText,
           pageContext,
@@ -193,33 +247,58 @@ export const POST = async (req: NextRequest) => {
           provider,
           modelName,
           writer,
-        }),
-        // Which tools end the turn — and why — lives beside the tool metadata
-        // in agent.model.ts, where a new tool is registered.
-        stopWhen: [
-          stepCountIs(APP_CONSTANTS.AGENT_CHAT_MAX_STEPS),
-          ...AGENT_CHAT_TERMINAL_TOOLS.map((name) =>
-            name === "add_job" ? addJobSettledStop : hasToolCall(name),
-          ),
-        ],
-        // Argument extraction wants determinism.
-        temperature: TEMPERATURES.ANALYSIS,
-        abortSignal: turnSignal,
-        providerOptions: {
-          // qwen3.5 is a hybrid-reasoning model and the provider defaults
-          // think to false. With the thinking channel shut it deliberates in
-          // the content channel, and content and a tool call are mutually
-          // exclusive — add_job measured 1/7 with it off, 7/7 with it on.
-          ollama: { think: true, options: { num_ctx: APP_CONSTANTS.AGENT_CHAT_NUM_CTX } },
-        },
-      });
-      // createUIMessageStream emits no start/finish of its own — the merged
-      // stream carries them, so this is byte-identical to the old response.
-      writer.merge(result.toUIMessageStream());
-    },
+        });
+        prefixMetrics = measureTurnPrefix({
+          userId,
+          system: AGENT_CHAT_SYSTEM_PROMPT,
+          tools,
+          modelMessages,
+        });
+        const result = streamText({
+          model,
+          system: AGENT_CHAT_SYSTEM_PROMPT,
+          messages: modelMessages,
+          tools,
+          // Which tools end the turn — and why — lives beside the tool metadata
+          // in agent.model.ts, where a new tool is registered.
+          stopWhen: [
+            stepCountIs(APP_CONSTANTS.AGENT_CHAT_MAX_STEPS),
+            ...AGENT_CHAT_TERMINAL_TOOLS.map((name) =>
+              name === "add_job" ? addJobSettledStop : hasToolCall(name),
+            ),
+          ],
+          // Argument extraction wants determinism.
+          temperature: TEMPERATURES.ANALYSIS,
+          abortSignal: turnSignal,
+          providerOptions: {
+            // qwen3.5 is a hybrid-reasoning model and the provider defaults
+            // think to false. With the thinking channel shut it deliberates in
+            // the content channel, and content and a tool call are mutually
+            // exclusive — add_job measured 1/7 with it off, 7/7 with it on.
+            ollama: { think: true, options: { num_ctx: APP_CONSTANTS.AGENT_CHAT_NUM_CTX } },
+          },
+          // streamText's onFinish, not createUIMessageStream's: result is
+          // scoped inside execute while the span ends in the outer onFinish.
+          onFinish: ({ totalUsage, finishReason }) => {
+            turnUsage = totalUsage;
+            turnFinishReason = finishReason;
+          },
+        });
+        // createUIMessageStream emits no start/finish of its own — the merged
+        // stream carries them, so this is byte-identical to the old response.
+        // Load-bearing: toUIMessageStream catches stream errors itself and
+        // emits an error part, so createUIMessageStream's onError below never
+        // sees them. Without this the user gets the SDK's "An error occurred."
+        // and mapAgentError — the only thing that logs — never runs.
+        writer.merge(
+          result.toUIMessageStream({
+            onError: mapTurnError,
+          }),
+        );
+      }),
     onFinish: async ({ messages: finalMessages, responseMessage, isAborted }) => {
       const { tool, state, outcome } = outcomeOf(responseMessage);
-      logTurn({
+      const fields = {
         provider,
         model: modelName,
         tool,
@@ -231,6 +310,35 @@ export const POST = async (req: NextRequest) => {
         // Windowing is invisible to the user, so this is the only signal that
         // the model was given less history than the transcript holds.
         historyDropped: messages.length - windowed.length,
+        // What was actually sent. prefixChanged is the cache signal: the
+        // system prompt and tool material must stay byte-identical within a
+        // conversation or Ollama recomputes the whole prefix.
+        systemChars: prefixMetrics?.systemChars ?? 0,
+        toolChars: prefixMetrics?.toolChars ?? 0,
+        messageChars: prefixMetrics?.messageChars ?? 0,
+        prefixChanged: prefixMetrics?.prefixChanged ?? false,
+      };
+      // onFinish runs outside execute, so the span context has to be
+      // re-entered for the record to carry the turn's trace id.
+      runInSpan(turnSpan, () => logTurn(fields));
+      // The same curated field set, on the span rather than only in the log,
+      // so it is queryable beside latency, tokens and the tool waterfall.
+      turnSpan.end({
+        ...genAiResponseAttrs({
+          usage: turnUsage,
+          finishReason: turnFinishReason,
+        }),
+        "jobsync.tool": fields.tool,
+        "jobsync.tool_state": fields.toolState,
+        "jobsync.outcome": fields.outcome,
+        "jobsync.aborted": fields.aborted,
+        "jobsync.paste_chars": fields.pasteChars,
+        "jobsync.message_count": fields.messageCount,
+        "jobsync.history_dropped": fields.historyDropped,
+        "jobsync.system_chars": fields.systemChars,
+        "jobsync.tool_chars": fields.toolChars,
+        "jobsync.message_chars": fields.messageChars,
+        "jobsync.prefix_changed": fields.prefixChanged,
       });
       // A cancelled turn never writes back. Clear deletes the conversation and
       // this fires afterwards on the stream's cancel path, so saving here would
@@ -243,7 +351,7 @@ export const POST = async (req: NextRequest) => {
     },
     // NOTE: this signature takes the error directly, unlike streamText's
     // onError which takes { error }.
-    onError: (error) => mapAgentError(error, errorContext),
+    onError: mapTurnError,
   });
 
   return createUIMessageStreamResponse({ stream });

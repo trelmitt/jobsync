@@ -48,6 +48,13 @@ import {
 import { resolveApiKey } from "@/lib/api-key-resolver";
 import { PROVIDER_VERIFIERS } from "@/lib/ai/provider-registry.server";
 import { getOllamaBaseUrl } from "@/actions/apiKey.actions";
+import {
+  genAiRequestAttrs,
+  genAiResponseAttrs,
+  inputSizeAttrs,
+  SURFACES,
+  withSpan,
+} from "@/lib/telemetry";
 
 const MAX_JOBS_PER_RUN = APP_CONSTANTS.MAX_JOBS_PER_RUN;
 
@@ -1166,13 +1173,45 @@ ${removeHtmlTags(job.description)}
     const modelName = aiSettings.model || getDefaultModelForProvider(provider);
     const model = await getModel(provider, modelName, userId);
 
-    const result = await generateText({
-      model,
-      system: AUTOMATION_JOB_MATCH_SYSTEM_PROMPT,
-      prompt: buildAutomationJobMatchPrompt(resumeText, jobText),
-      temperature: 0.3,
-      abortSignal: signal,
-    });
+    const promptText = buildAutomationJobMatchPrompt(resumeText, jobText);
+
+    const result = await withSpan(
+      "scraper.match",
+      {
+        ...genAiRequestAttrs({
+          provider,
+          model: modelName,
+          temperature: 0.3,
+          numCtx: APP_CONSTANTS.AI_OLLAMA_NUM_CTX,
+          surface: SURFACES.AUTOMATION_MATCH,
+          system: AUTOMATION_JOB_MATCH_SYSTEM_PROMPT,
+          prompt: promptText,
+        }),
+        ...inputSizeAttrs({
+          resumeChars: resumeText.length,
+          jobChars: jobText.length,
+        }),
+        "jobsync.job_board": sourceBoard,
+        "jobsync.user_id": userId,
+      },
+      async (span) => {
+        const generated = await generateText({
+          model,
+          system: AUTOMATION_JOB_MATCH_SYSTEM_PROMPT,
+          prompt: promptText,
+          temperature: 0.3,
+          abortSignal: signal,
+        });
+        span.setAttrs(
+          genAiResponseAttrs({
+            usage: generated.totalUsage,
+            finishReason: generated.finishReason,
+            text: generated.text,
+          }),
+        );
+        return generated;
+      },
+    );
 
     const { scores, body: rawBody } = parseJobMatch(result.text);
     if (!scores) {
