@@ -3,9 +3,13 @@ import { cookies, headers } from "next/headers";
 import bcrypt from "bcryptjs";
 import { PARTNER_COOKIE, verifyPartnerToken } from "./session";
 
+// Login throttling lives in ./rate-limit (pure + unit-tested). Re-exported here
+// so callers keep importing the whole PIN gate from one module.
+export { loginAllowed, recordFailedLogin, clearLoginAttempts } from "./rate-limit";
+
 // PIN gate for the read-only partner area. The PIN is the ONLY wall on a
 // public URL, so: hashed at rest (PARTNER_PIN_HASH, bcrypt), constant-time
-// compare inside bcrypt, and per-client rate-limit + lockout below.
+// compare inside bcrypt, and per-client + global rate-limit + lockout in ./rate-limit.
 
 export async function isPartnerAuthed(): Promise<boolean> {
   const jar = await cookies();
@@ -24,48 +28,11 @@ export async function verifyPin(pin: string): Promise<boolean> {
   return bcrypt.compare(pin, hash);
 }
 
-// --- login rate limit (in-memory, per client key) --------------------------
-// ponytail: in-memory, resets on restart — fine for a single container; move
-// to the DB if this ever runs multi-instance.
-interface Attempt {
-  count: number;
-  resetTime: number;
-  lockedUntil?: number;
-}
-const attempts = new Map<string, Attempt>();
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60 * 1000;
-const LOCKOUT_MS = 15 * 60 * 1000;
-
+// Best-effort client key for the per-key rate-limit bucket. NOTE: x-forwarded-for
+// is client-spoofable, so this is only granularity for the common case — the
+// spoof-proof backstop is the global bucket in ./rate-limit, not this key.
 export async function clientKey(): Promise<string> {
   const h = await headers();
   const fwd = h.get("x-forwarded-for");
   return (fwd ? fwd.split(",")[0].trim() : "") || h.get("x-real-ip") || "unknown";
-}
-
-export function loginAllowed(key: string): { allowed: boolean; retryInMs: number } {
-  const now = Date.now();
-  const e = attempts.get(key);
-  if (e?.lockedUntil && now < e.lockedUntil) return { allowed: false, retryInMs: e.lockedUntil - now };
-  if (!e || now > e.resetTime) return { allowed: true, retryInMs: 0 };
-  if (e.count >= MAX_ATTEMPTS) {
-    e.lockedUntil = now + LOCKOUT_MS;
-    return { allowed: false, retryInMs: LOCKOUT_MS };
-  }
-  return { allowed: true, retryInMs: 0 };
-}
-
-export function recordFailedLogin(key: string): void {
-  const now = Date.now();
-  const e = attempts.get(key);
-  if (!e || now > e.resetTime) {
-    attempts.set(key, { count: 1, resetTime: now + WINDOW_MS });
-    return;
-  }
-  e.count++;
-  if (e.count >= MAX_ATTEMPTS) e.lockedUntil = now + LOCKOUT_MS;
-}
-
-export function clearLoginAttempts(key: string): void {
-  attempts.delete(key);
 }

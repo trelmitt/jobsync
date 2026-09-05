@@ -49,6 +49,10 @@ export async function partnerLogin(pin: string): Promise<ActionResult> {
 }
 
 export async function partnerLogout(): Promise<ActionResult> {
+  // Clears the cookie in THIS browser only. The token is a stateless HMAC bearer
+  // with no server-side revocation, so a value copied out of devtools stays valid
+  // until it expires. To force-revoke ALL partner access, rotate
+  // PARTNER_SESSION_SECRET (one env var) and restart — every token stops verifying.
   const jar = await cookies();
   jar.set(PARTNER_COOKIE, "", { path: "/partner", maxAge: 0 });
   return { success: true };
