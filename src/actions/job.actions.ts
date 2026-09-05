@@ -12,6 +12,8 @@ export { addJob, updateJob, deleteJobById } from "./job/mutations";
 
 export { updateJobStatus, saveJobMatchResult } from "./job/status";
 
+export { toggleJobShared } from "./job/partner";
+
 export {
   getStatusList,
   getJobSourceList,

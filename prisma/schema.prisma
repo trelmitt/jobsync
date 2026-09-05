@@ -35,6 +35,7 @@ model User {
   Tag            Tag[]
   Question       Question[]
   McpAccessToken McpAccessToken[]
+  Suggestion     Suggestion[]
   ChatConversation ChatConversation?
   defaultResumeId String?
   defaultResume   Resume?          @relation("UserDefaultResume", fields: [defaultResumeId], references: [id], onDelete: SetNull)
@@ -293,6 +294,9 @@ model Job {
   workplaceType String?
   createdAt   DateTime
   applied     Boolean     @default(false)
+  // Partner view: false = hidden from the read-only partner dashboard (curated
+  // opt-in). Aggregate momentum counts still include the job; only the card is gated.
+  sharedWithPartner Boolean @default(false)
   appliedDate DateTime?
   dueDate     DateTime?
   statusId    String
@@ -537,4 +541,42 @@ model ChatConversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// A job the partner found and submitted through the read-only partner page.
+// Kept OUT of the Job pipeline until the owner promotes it. status flows
+// new -> reviewed | promoted | dismissed; replyNote is the owner's verdict,
+// which the partner sees back on their page.
+model Suggestion {
+  id            String   @id @default(uuid())
+  userId        String // owner (single-user inbox)
+  user          User     @relation(fields: [userId], references: [id])
+  url           String
+  whyMe         String?
+  status        String   @default("new")
+  replyNote     String?
+  promotedJobId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+// Non-traditional work (ventures / advisory) surfaced on the partner dashboard.
+// Written ONLY by the one-way vault sync script (scripts/sync-ventures.ts);
+// the app never writes back to the vault. Upsert key is sourceNote so the sync
+// is idempotent.
+model Venture {
+  id          String    @id @default(uuid())
+  sourceNote  String    @unique // vault note basename — idempotent sync key
+  name        String
+  kind        String    @default("venture") // venture | advisory
+  status      String?
+  summary     String?
+  repo        String?
+  sortOrder   Int       @default(0)
+  lastUpdated DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }

@@ -47,6 +47,7 @@ export interface JobResponse {
   description: string;
   jobUrl: string;
   applied: boolean;
+  sharedWithPartner?: boolean;
   resumeId?: string;
   Resume?: Resume;
   coverLetterId?: string;

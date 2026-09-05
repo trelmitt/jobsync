@@ -25,7 +25,8 @@
     "eval:mcp-tools": "npm --prefix evals run eval:mcp-tools",
     "eval:agent-chat": "npm --prefix evals run eval:agent-chat",
     "eval:all": "npm --prefix evals run eval:all",
-    "eval:view": "npm --prefix evals run eval:view"
+    "eval:view": "npm --prefix evals run eval:view",
+    "sync:ventures": "node scripts/sync-ventures.js"
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.4",
@@ -68,6 +69,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
+    "js-yaml": "^4.3.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.469.0",
     "mammoth": "^1.12.0",

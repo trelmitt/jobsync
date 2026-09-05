@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { Badge } from "../ui/badge";
 import { StatusBadge } from "../StatusBadge";
 import { getJobStatusBadgeColor } from "@/lib/badge-colors";
+import { ShareWithPartnerToggle } from "@/components/myjobs/ShareWithPartnerToggle";
 import { formatUrl } from "@/lib/utils";
 import {
   Company,
@@ -280,6 +281,14 @@ function JobDetails({
           </DropdownMenu>
         </div>
       </div>
+      {job?.id && (
+        <div className="mt-3 flex justify-end">
+          <ShareWithPartnerToggle
+            jobId={job.id}
+            initial={job.sharedWithPartner ?? false}
+          />
+        </div>
+      )}
       {job?.id && (
         <Card className="col-span-3">
           <CardHeader className="flex-row items-center justify-between relative">
