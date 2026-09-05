@@ -1,15 +1,23 @@
 services:
   app:
-    image: ghcr.io/gsync/jobsync:latest
+    # Build from this fork's source (partner + ventures code); the upstream
+    # ghcr image does not contain it.
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: jobsync_app
     ports:
       - "3737:3737"
+    # Secrets (AUTH_SECRET, ENCRYPTION_KEY, PARTNER_SESSION_SECRET,
+    # PARTNER_PIN_HASH, iMessage config) load literally from this gitignored
+    # file — env_file is not interpolated, so the bcrypt hash's $ needs no escaping.
+    env_file:
+      - .env.docker
     environment:
       - NODE_ENV=production
       - MCP_ENABLED=${MCP_ENABLED:-true}
       - DATABASE_URL=file:/data/dev.db
-      - AUTH_SECRET=${AUTH_SECRET:-your-auth-secret}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-you-encryption-key-here}
+      # NEXTAUTH_URL MUST become the public HTTPS origin (OpenShip) before exposure.
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3737}
       - AUTH_TRUST_HOST=${AUTH_TRUST_HOST:-true}
       - TZ=${TZ:-America/Edmonton}
