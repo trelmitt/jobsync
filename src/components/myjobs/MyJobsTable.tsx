@@ -15,7 +15,8 @@ import { JobResponse, JobStatus } from "@/models/job.model";
 import Link from "next/link";
 import { DeleteAlertDialog } from "../DeleteAlertDialog";
 import { CircularScore } from "@/components/CircularScore";
-import { JobStatusBadge } from "./JobStatusBadge";
+import { JobStatusBadgeMenu } from "./JobStatusBadgeMenu";
+import { TooltipProvider } from "../ui/tooltip";
 import { JobActionsMenu } from "./JobActionsMenu";
 import { MatchJobButton } from "./MatchJobButton";
 import { CompanyLogo } from "./CompanyLogo";
@@ -46,7 +47,7 @@ function MyJobsTable({
   };
 
   return (
-    <>
+    <TooltipProvider delayDuration={300}>
       <Table>
         <TableHeader>
           <TableRow>
@@ -100,9 +101,11 @@ function MyJobsTable({
                   <span className="block truncate">{job.Location?.label}</span>
                 </TableCell>
                 <TableCell>
-                  <JobStatusBadge
+                  <JobStatusBadgeMenu
                     job={job}
-                    className="w-[70px] justify-center"
+                    jobStatuses={jobStatuses}
+                    onChangeJobStatus={onChangeJobStatus}
+                    className="w-[110px] whitespace-nowrap justify-center"
                   />
                 </TableCell>
                 <TableCell className="hidden md:table-cell text-center">
@@ -141,7 +144,7 @@ function MyJobsTable({
         onOpenChange={setAlertOpen}
         onDelete={() => deleteJob(jobIdToDelete)}
       />
-    </>
+    </TooltipProvider>
   );
 }
 
