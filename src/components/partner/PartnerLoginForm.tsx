@@ -35,13 +35,18 @@ export function PartnerLoginForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="space-y-4">
+          {/* type=text (not password) so iOS honors inputMode and shows the number
+              pad; masked via -webkit-text-security. ponytail: no mask on Firefox
+              desktop (no text-security) — phone-first tool, accepted. */}
           <Input
-            type="password"
+            type="text"
             inputMode="numeric"
+            pattern="[0-9]*"
             autoComplete="off"
             placeholder="PIN"
+            className="[-webkit-text-security:disc]"
             value={pin}
-            onChange={(e) => setPin(e.target.value)}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
             autoFocus
           />
           <Button type="submit" className="w-full" disabled={pending || !pin}>

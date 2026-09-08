@@ -17,8 +17,8 @@ services:
       - NODE_ENV=production
       - MCP_ENABLED=${MCP_ENABLED:-true}
       - DATABASE_URL=file:/data/dev.db
-      # NEXTAUTH_URL MUST become the public HTTPS origin (OpenShip) before exposure.
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3737}
+      # NEXTAUTH_URL is set in .env.docker (the tailnet HTTPS origin) so it isn't
+      # overridden here and stays separate from the dev .env's localhost value.
       - AUTH_TRUST_HOST=${AUTH_TRUST_HOST:-true}
       - TZ=${TZ:-America/Edmonton}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
