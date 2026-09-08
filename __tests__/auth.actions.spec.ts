@@ -12,6 +12,7 @@ vi.mock("@/lib/db", () => {
     user: {
       findUnique: vi.fn(),
       create: vi.fn(),
+      count: vi.fn().mockResolvedValue(0),
     },
     jobSource: {
       createMany: vi.fn(),
@@ -101,6 +102,17 @@ describe("Auth Actions", () => {
           createdBy: mockNewUser.id,
         })),
       });
+    });
+
+    it("should return error when signups are closed (a user already exists)", async () => {
+      (prisma.user.count as any).mockResolvedValueOnce(1);
+
+      const result = await signup(validSignupData);
+
+      expect(result).toEqual({ error: "Signups are closed." });
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+      expect(prisma.user.create).not.toHaveBeenCalled();
     });
 
     it("should return error if user already exists", async () => {

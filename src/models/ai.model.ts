@@ -20,6 +20,7 @@ export enum AiProvider {
   DEEPSEEK = "deepseek",
   GEMINI = "gemini",
   OPENROUTER = "openrouter",
+  ANTHROPIC = "anthropic",
 }
 
 // Default models per provider
@@ -44,6 +45,12 @@ export enum GeminiModel {
   GEMINI_2_0_FLASH_LITE = "gemini-2.0-flash-lite",
   GEMINI_1_5_PRO = "gemini-1.5-pro",
   GEMINI_1_5_FLASH = "gemini-1.5-flash",
+}
+
+export enum AnthropicModel {
+  CLAUDE_SONNET_5 = "claude-sonnet-5",
+  CLAUDE_OPUS_5 = "claude-opus-5",
+  CLAUDE_HAIKU_4_5 = "claude-haiku-4-5-20251001",
 }
 
 export const defaultModel: AiModel = {

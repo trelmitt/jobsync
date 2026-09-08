@@ -19,6 +19,11 @@ export async function signup(formData: {
 
   const { name, email, password } = parsed.data;
 
+  const userCount = await prisma.user.count();
+  if (userCount > 0) {
+    return { error: "Signups are closed." };
+  }
+
   const existingUser = await prisma.user.findUnique({
     where: { email },
   });

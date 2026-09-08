@@ -115,9 +115,28 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryEntry> = {
       sensitive: true,
     },
   },
+
+  anthropic: {
+    id: "anthropic",
+    displayName: "Anthropic Claude",
+    credentialType: "api-key",
+    category: "cloud",
+    envVar: "ANTHROPIC_API_KEY",
+    // No modelsEndpoint: Anthropic has no simple public models-list call the
+    // way OpenAI/Gemini do, so the UI falls back to the static AnthropicModel
+    // list (see AiSettings.tsx getFallbackModels).
+    requiresRunningCheck: false,
+    supportsKeepAlive: false,
+    keyConfig: {
+      placeholder: "sk-ant-...",
+      inputType: "password",
+      description: "Used for Claude models in resume review and job matching",
+      sensitive: true,
+    },
+  },
 };
 
-export const AI_PROVIDERS = ["ollama", "openai", "deepseek", "openrouter", "gemini"] as const;
+export const AI_PROVIDERS = ["ollama", "openai", "deepseek", "openrouter", "gemini", "anthropic"] as const;
 export type AiProviderId = (typeof AI_PROVIDERS)[number];
 
 export function getAiProviders(): ProviderRegistryEntry[] {
