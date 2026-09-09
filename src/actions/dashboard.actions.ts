@@ -8,6 +8,8 @@ export type { TopActivityType, JobsActivitySummary } from "./dashboard/stats";
 
 export { getRecentJobs, getRecentActivities } from "./dashboard/recent";
 
+export { getStaleJobs } from "./dashboard/stale";
+
 export {
   getActivityDataForPeriod,
   getJobsActivityForPeriod,
