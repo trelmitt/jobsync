@@ -238,3 +238,88 @@ export async function acceptDiscoveredJob(id: string): Promise<{
 }> {
   return setDiscoveredJobStatus(id, "accepted");
 }
+
+const DISCOVERED_JOB_INCLUDE = {
+  automation: { select: { id: true, name: true } },
+  JobTitle: { select: { label: true } },
+  Company: { select: { label: true } },
+  Location: { select: { label: true } },
+};
+
+// Combined action for the swipe inbox's "Apply" button: accepts the job into
+// the tracked list and marks it applied in one step, reusing the same
+// status-derived fields updateJobStatus() sets for a manual "applied" change.
+export async function applyDiscoveredJob(id: string): Promise<{
+  success: boolean;
+  data?: DiscoveredJob;
+  message?: string;
+}> {
+  try {
+    const user = await requireUser();
+
+    const job = await db.job.findFirst({
+      where: { id, userId: user.id, automationId: { not: null } },
+    });
+    if (!job) {
+      return { success: false, message: "Discovered job not found" };
+    }
+
+    const appliedStatus = await db.jobStatus.findFirst({
+      where: { value: "applied" },
+    });
+
+    const updated = await db.job.update({
+      where: { id },
+      data: {
+        discoveryStatus: "accepted",
+        ...(appliedStatus && {
+          statusId: appliedStatus.id,
+          applied: true,
+          appliedDate: new Date(),
+        }),
+      },
+      include: DISCOVERED_JOB_INCLUDE,
+    });
+
+    return { success: true, data: updated as unknown as DiscoveredJob };
+  } catch (error) {
+    return formatError(error, "Failed to apply to discovered job");
+  }
+}
+
+// Single-level undo for the swipe inbox: puts a job back to "new" and clears
+// any applied fields the Apply action set. Safe to call after Dismiss or Hold
+// too, since those never touch statusId/applied/appliedDate in the first place.
+export async function undoDiscoveredJobTriage(id: string): Promise<{
+  success: boolean;
+  data?: DiscoveredJob;
+  message?: string;
+}> {
+  try {
+    const user = await requireUser();
+
+    const job = await db.job.findFirst({
+      where: { id, userId: user.id, automationId: { not: null } },
+    });
+    if (!job) {
+      return { success: false, message: "Discovered job not found" };
+    }
+
+    const newStatus = await db.jobStatus.findFirst({ where: { value: "new" } });
+
+    const updated = await db.job.update({
+      where: { id },
+      data: {
+        discoveryStatus: "new",
+        ...(newStatus && { statusId: newStatus.id }),
+        applied: false,
+        appliedDate: null,
+      },
+      include: DISCOVERED_JOB_INCLUDE,
+    });
+
+    return { success: true, data: updated as unknown as DiscoveredJob };
+  } catch (error) {
+    return formatError(error, "Failed to undo");
+  }
+}

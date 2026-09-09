@@ -18,6 +18,8 @@ export {
   dismissDiscoveredJob,
   clearDiscoveredJobs,
   acceptDiscoveredJob,
+  applyDiscoveredJob,
+  undoDiscoveredJobTriage,
 } from "./automation/discoveredJobs";
 
 export { analyzeDiscoveredJob } from "./automation/analyze";
