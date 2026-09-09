@@ -7,6 +7,7 @@ import {
   defaultUserSettings,
   AiSettings,
   DisplaySettings,
+  JobPreferences,
 } from "@/models/userSettings.model";
 
 export const getUserSettings = async (): Promise<any | undefined> => {
@@ -83,6 +84,11 @@ export const updateUserSettings = async (
           ...currentSettings.display,
           ...settings.display,
         },
+        jobPreferences: {
+          ...defaultUserSettings.jobPreferences,
+          ...currentSettings.jobPreferences,
+          ...settings.jobPreferences,
+        },
       };
     } else {
       mergedSettings = {
@@ -90,6 +96,10 @@ export const updateUserSettings = async (
         ...settings,
         ai: { ...defaultUserSettings.ai, ...settings.ai },
         display: { ...defaultUserSettings.display, ...settings.display },
+        jobPreferences: {
+          ...defaultUserSettings.jobPreferences,
+          ...settings.jobPreferences,
+        },
       };
     }
 
@@ -129,4 +139,10 @@ export const updateDisplaySettings = async (
   displaySettings: DisplaySettings
 ): Promise<any | undefined> => {
   return updateUserSettings({ display: displaySettings });
+};
+
+export const updateJobPreferences = async (
+  jobPreferences: JobPreferences
+): Promise<any | undefined> => {
+  return updateUserSettings({ jobPreferences });
 };

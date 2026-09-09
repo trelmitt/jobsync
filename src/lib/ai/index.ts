@@ -14,6 +14,8 @@ export {
   buildJobMatchPrompt,
   AUTOMATION_JOB_MATCH_SYSTEM_PROMPT,
   buildAutomationJobMatchPrompt,
+  OPPORTUNITY_FIT_SYSTEM_PROMPT,
+  buildOpportunityFitPrompt,
   COVER_LETTER_SYSTEM_PROMPT,
   buildCoverLetterPrompt,
 } from "./prompts";

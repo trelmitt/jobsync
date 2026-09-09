@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import AiSettings from "@/components/settings/AiSettings";
+import JobPreferences from "@/components/settings/JobPreferences";
 import ApiKeySettings from "@/components/settings/ApiKeySettings";
 import DataSettings from "@/components/settings/DataSettings";
 import DisplaySettings from "@/components/settings/DisplaySettings";
@@ -23,6 +24,7 @@ function Settings() {
         />
         <div className="flex-1 min-w-0">
           {activeSection === "ai-provider" && <AiSettings />}
+          {activeSection === "job-preferences" && <JobPreferences />}
           {activeSection === "api-keys" && <ApiKeySettings />}
           {activeSection === "appearance" && <DisplaySettings />}
           {activeSection === "mcp-access" && <McpAccessSettings />}

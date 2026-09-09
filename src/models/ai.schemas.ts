@@ -73,4 +73,12 @@ export type JobMatchData = JobMatchScores & {
   prerankComponents?: PrerankComponents;
   // Set by the MCP path: how complete the job description was when scored.
   descriptionCompleteness?: DescriptionCompleteness;
+  // Opportunity-fit breakdown (optional second LLM pass, run only when the
+  // candidate has an opportunityProfile set). `matchScore` above is the final
+  // blended score used for gating/sorting; these are the two inputs to it.
+  skillScore?: number;
+  opportunityScore?: number;
+  opportunityRecommendation?: JobMatchRecommendation;
+  opportunitySummary?: string;
+  opportunityWeight?: number;
 };

@@ -25,6 +25,8 @@ import {
   parseJobMatch,
   AUTOMATION_JOB_MATCH_SYSTEM_PROMPT,
   buildAutomationJobMatchPrompt,
+  OPPORTUNITY_FIT_SYSTEM_PROMPT,
+  buildOpportunityFitPrompt,
   removeHtmlTags,
 } from "@/lib/ai";
 import {
@@ -40,6 +42,7 @@ import { automationLogger } from "@/lib/automation-logger";
 import {
   defaultUserSettings,
   type AiSettings,
+  type JobPreferences,
 } from "@/models/userSettings.model";
 import { resolveApiKey } from "@/lib/api-key-resolver";
 import { PROVIDER_VERIFIERS } from "@/lib/ai/provider-registry.server";
@@ -87,6 +90,24 @@ export async function getUserAiSettings(userId: string): Promise<AiSettings> {
   return {
     ...defaultUserSettings.ai,
     ...settings.ai,
+  };
+}
+
+export async function getUserJobPreferences(
+  userId: string,
+): Promise<JobPreferences> {
+  const userSettings = await db.userSettings.findUnique({
+    where: { userId },
+  });
+
+  if (!userSettings) {
+    return defaultUserSettings.jobPreferences;
+  }
+
+  const settings = JSON.parse(userSettings.settings);
+  return {
+    ...defaultUserSettings.jobPreferences,
+    ...settings.jobPreferences,
   };
 }
 
@@ -247,6 +268,7 @@ export async function runAutomation(
     // Checked here (not just in the manual /run route) so scheduled/cron
     // runs also fail fast instead of silently completing with 0 matches.
     const aiSettings = await getUserAiSettings(automation.userId);
+    const jobPreferences = await getUserJobPreferences(automation.userId);
     if (aiSettings.provider === AiProvider.OLLAMA) {
       const ollamaCheck = await PROVIDER_VERIFIERS.ollama(
         await getOllamaBaseUrl(automation.userId),
@@ -463,6 +485,7 @@ export async function runAutomation(
         aiSettings,
         automation.userId,
         effectiveSignal,
+        jobPreferences,
       );
 
       // Abort may have fired mid-call; bail before saving this job.
@@ -911,6 +934,7 @@ async function runAtsRun(
     }
 
     const aiSettings = await getUserAiSettings(automation.userId);
+    const jobPreferences = await getUserJobPreferences(automation.userId);
     const modelName =
       aiSettings.model || getDefaultModelForProvider(aiSettings.provider);
     const limit = getAutomationMatchLimit(aiSettings.provider);
@@ -977,6 +1001,7 @@ async function runAtsRun(
         aiSettings,
         automation.userId,
         signal,
+        jobPreferences,
       );
 
       // Abort may have fired mid-call; bail before saving this job.
@@ -1113,6 +1138,7 @@ async function matchJobToResume(
   aiSettings: AiSettings,
   userId: string,
   signal?: AbortSignal,
+  jobPreferences?: JobPreferences,
 ): Promise<MatchResult> {
   try {
     const resumeText = await convertResumeForMatch(resume);
@@ -1143,15 +1169,61 @@ ${removeHtmlTags(job.description)}
       return { success: false, score: 0, error: "No match data returned" };
     }
 
-    return {
-      success: true,
-      score: scores.matchScore,
-      data: {
-        matchScore: scores.matchScore,
-        recommendation: scores.recommendation,
-        body,
-      },
-    };
+    const skillScore = scores.matchScore;
+    const opportunityProfile = jobPreferences?.opportunityProfile?.trim();
+    const opportunityWeight = jobPreferences?.opportunityWeight ?? 0;
+
+    // Opportunity fit is an optional second opinion (candidate priorities like
+    // company stage/AI focus/equity, not skills). Skip the extra LLM call
+    // entirely when the candidate hasn't opted in — zero cost/behavior change
+    // for anyone who leaves the preference blank.
+    if (!opportunityProfile || opportunityWeight <= 0) {
+      return {
+        success: true,
+        score: skillScore,
+        data: { matchScore: skillScore, recommendation: scores.recommendation, body },
+      };
+    }
+
+    try {
+      const opportunityResult = await generateText({
+        model,
+        system: OPPORTUNITY_FIT_SYSTEM_PROMPT,
+        prompt: buildOpportunityFitPrompt(jobText, opportunityProfile),
+        temperature: 0.3,
+        abortSignal: signal,
+      });
+      const parsedOpportunity = parseJobMatch(opportunityResult.text);
+      if (!parsedOpportunity.scores) throw new Error("No opportunity score returned");
+
+      const opportunityScore = parsedOpportunity.scores.matchScore;
+      const weight = Math.min(100, Math.max(0, opportunityWeight)) / 100;
+      const blended = Math.round(skillScore * (1 - weight) + opportunityScore * weight);
+
+      return {
+        success: true,
+        score: blended,
+        data: {
+          matchScore: blended,
+          recommendation: scores.recommendation,
+          body,
+          skillScore,
+          opportunityScore,
+          opportunityRecommendation: parsedOpportunity.scores.recommendation,
+          opportunitySummary: parsedOpportunity.body,
+          opportunityWeight,
+        },
+      };
+    } catch (opportunityError) {
+      // The opportunity pass is an enhancement, not a requirement — fall back
+      // to the skill-only score rather than failing the whole match.
+      console.error("Opportunity-fit matching error:", opportunityError);
+      return {
+        success: true,
+        score: skillScore,
+        data: { matchScore: skillScore, recommendation: scores.recommendation, body },
+      };
+    }
   } catch (error) {
     if (signal?.aborted || (error instanceof Error && error.name === "AbortError")) {
       return { success: false, score: 0, error: "aborted" };
