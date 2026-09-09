@@ -96,12 +96,19 @@ const buildJobsWhereClause = (userId: string, filters: JobsListFilters) => {
     ...filterBy,
   };
 
-  // Dismissed discovered jobs are kept only for dedup and shouldn't
-  // clutter the tracked jobs list unless explicitly filtered for.
-  if (filter !== "dismissed") {
+  // Dismissed and not-yet-triaged discovered jobs are kept for the discovered
+  // inbox/dedup but shouldn't clutter the tracked jobs list unless explicitly
+  // filtered for.
+  const hiddenDiscoveryStatuses = ["dismissed", "new"].filter(
+    (status) => status !== filter,
+  );
+  if (hiddenDiscoveryStatuses.length) {
     whereClause.AND = [
       {
-        OR: [{ discoveryStatus: null }, { discoveryStatus: { not: "dismissed" } }],
+        OR: [
+          { discoveryStatus: null },
+          { discoveryStatus: { notIn: hiddenDiscoveryStatuses } },
+        ],
       },
     ];
   }

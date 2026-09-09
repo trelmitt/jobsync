@@ -9,6 +9,7 @@ import {
   Zap,
   BookOpen,
   Inbox,
+  Sparkles,
 } from "lucide-react";
 
 export const APP_CONSTANTS = {
@@ -284,6 +285,11 @@ export const SIDEBAR_LINKS = [
     icon: BriefcaseBusiness,
     route: "/dashboard/myjobs",
     label: "Jobs",
+  },
+  {
+    icon: Sparkles,
+    route: "/dashboard/discovered",
+    label: "Discovered",
   },
   {
     icon: Inbox,
