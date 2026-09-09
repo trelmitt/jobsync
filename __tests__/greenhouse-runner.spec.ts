@@ -219,6 +219,40 @@ describe("runAutomation (greenhouse)", () => {
     expect(weak.discoveryStatus).toBe("dismissed");
   });
 
+  it("blends skill fit with opportunity fit when the candidate has set a job preference", async () => {
+    (prisma.userSettings.findUnique as any).mockResolvedValue({
+      settings: JSON.stringify({
+        jobPreferences: {
+          opportunityProfile: "Early-stage AI startups with equity upside",
+          opportunityWeight: 50,
+        },
+      }),
+    });
+    (searchGreenhouseJobs as any).mockResolvedValue({
+      jobs: [makeJob("Frontend Engineer", "React")],
+      errors: [],
+    });
+    (generateText as any)
+      .mockResolvedValueOnce({ text: scoreText(60) }) // skill fit
+      .mockResolvedValueOnce({ text: scoreText(100) }); // opportunity fit
+
+    const result = await runAutomation(automation);
+
+    expect(result.status).toBe("completed");
+    // Second LLM call is the opportunity-fit pass.
+    expect((generateText as any).mock.calls.length).toBe(2);
+    expect(result.jobsSaved).toBe(1);
+
+    const [data] = (prisma.job.create as any).mock.calls.map((c: any[]) => c[0].data);
+    // (60 * 0.5) + (100 * 0.5) = 80 -> clears the threshold.
+    expect(data.matchScore).toBe(80);
+    expect(data.discoveryStatus).toBe("new");
+    const matchData = JSON.parse(data.matchData);
+    expect(matchData.skillScore).toBe(60);
+    expect(matchData.opportunityScore).toBe(100);
+    expect(matchData.opportunityWeight).toBe(50);
+  });
+
   it("does not save a job when AI matching is unavailable, rather than saving it unreviewed", async () => {
     (searchGreenhouseJobs as any).mockResolvedValue({
       jobs: [makeJob("Frontend Engineer", "React")],

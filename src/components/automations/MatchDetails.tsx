@@ -39,6 +39,14 @@ export function MatchDetails({ matchData, discoveredAt }: MatchDetailsProps) {
             {matchData.recommendation}
           </Badge>
         )}
+        {matchData.opportunityScore !== undefined && (
+          <Badge
+            variant="secondary"
+            title="This match blends skills fit with how well the listing fits your stated job preferences."
+          >
+            Skill {matchData.skillScore}% · Opportunity {matchData.opportunityScore}%
+          </Badge>
+        )}
         {matchData.descriptionCompleteness &&
           matchData.descriptionCompleteness !== "full" && (
             <Badge
@@ -54,7 +62,16 @@ export function MatchDetails({ matchData, discoveredAt }: MatchDetailsProps) {
         <div className="text-sm leading-relaxed [&_p]:mt-2 [&_ul]:mt-2 [&_ol]:mt-2 [&_h2]:mt-4 [&_h2]:font-semibold">
           <TipTapContentViewer content={html} />
         </div>
-      ) : matchData.summary ? (
+      ) : null}
+
+      {matchData.opportunitySummary && (
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Opportunity fit: </span>
+          {matchData.opportunitySummary}
+        </p>
+      )}
+
+      {!html && matchData.summary ? (
         <div className="space-y-2">
           <p className="text-sm">{matchData.summary}</p>
           <p className="text-xs text-muted-foreground italic">

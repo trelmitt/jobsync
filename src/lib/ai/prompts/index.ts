@@ -25,6 +25,12 @@ export {
   buildAutomationJobMatchPrompt,
 } from "./automation-match";
 
+// Opportunity Fit exports (optional second automation-match pass)
+export {
+  OPPORTUNITY_FIT_SYSTEM_PROMPT,
+  buildOpportunityFitPrompt,
+} from "./opportunity-fit";
+
 // Resume Import exports
 export {
   RESUME_IMPORT_SYSTEM_PROMPT,
