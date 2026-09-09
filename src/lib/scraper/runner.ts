@@ -7,6 +7,7 @@ import type {
   ScrapedJobData,
   JobBoard,
   FunnelStage,
+  DiscoveryStatus,
 } from "@/models/automation.model";
 import type { ScraperError, JobDetails } from "./types";
 import { searchJSearchJobs } from "./jsearch";
@@ -721,6 +722,7 @@ async function persistDiscoveredJob(
   job: JobDetails,
   matchScore: number,
   matchData: object,
+  discoveryStatus?: DiscoveryStatus,
 ): Promise<boolean> {
   const scrapedJob: ScrapedJobData = {
     title: job.title,
@@ -740,6 +742,7 @@ async function persistDiscoveredJob(
     automationId: automation.id,
     matchScore,
     matchData: JSON.stringify(matchData),
+    discoveryStatus,
   });
 
   try {
@@ -959,28 +962,7 @@ async function runAtsRun(
       // after all dispatched tasks settle.
       if (signal?.aborted) return;
 
-      const saveUnanalyzed = async () => {
-        try {
-          const saved = await persistDiscoveredJob(
-            automation,
-            scored.job,
-            scalePrerank(scored.score),
-            {
-              prerankScore: scored.score,
-              prerankComponents: scored.components,
-              analyzed: false,
-            },
-          );
-          if (saved) jobsSaved++;
-        } catch (err) {
-          console.error(`${label} Failed to save listing:`, err);
-        }
-      };
-
-      if (aiError) {
-        await saveUnanalyzed();
-        return;
-      }
+      if (aiError) return;
 
       automationLogger.log(
         automation.id,
@@ -997,10 +979,7 @@ async function runAtsRun(
         signal,
       );
 
-      // Abort may have fired mid-call; bail before saving this job. This
-      // check must come before the failure branch below, since an aborted
-      // match resolves as a non-ai_unavailable failure and would otherwise
-      // incorrectly saveUnanalyzed() a cancelled run's job.
+      // Abort may have fired mid-call; bail before saving this job.
       if (signal?.aborted) return;
 
       if (!matchResult.success) {
@@ -1017,7 +996,6 @@ async function runAtsRun(
             `${label} LLM match failed: ${matchResult.error}`,
           );
         }
-        await saveUnanalyzed();
         return;
       }
 
@@ -1028,7 +1006,7 @@ async function runAtsRun(
       automationLogger.log(
         automation.id,
         isStrong ? "success" : "info",
-        `${label} Analyzed ${analyzed}/${totalToAnalyze}: ${scored.job.title} — ${matchResult.score}%`,
+        `${label} Analyzed ${analyzed}/${totalToAnalyze}: ${scored.job.title} — ${matchResult.score}%${isStrong ? "" : " (below threshold, dismissed)"}`,
         { score: matchResult.score, threshold: automation.matchThreshold },
       );
 
@@ -1048,6 +1026,7 @@ async function runAtsRun(
             prerankComponents: scored.components,
             analyzed: true,
           },
+          isStrong ? "new" : "dismissed",
         );
         if (saved) jobsSaved++;
       } catch (err) {

@@ -54,7 +54,9 @@ const EMPTY_ATS: AtsConfigValue = {
   keywords: [],
   locations: [],
   strictLocation: false,
-  topK: APP_CONSTANTS.MAX_JOBS_PER_RUN,
+  // Analyze every relevant listing by default — local AI matching is fast and
+  // free, so there's no cost reason to leave most listings unanalyzed.
+  topK: APP_CONSTANTS.GREENHOUSE_LISTING_CAP,
   saveUnanalyzed: true,
 };
 

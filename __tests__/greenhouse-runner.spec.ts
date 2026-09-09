@@ -190,6 +190,48 @@ describe("runAutomation (greenhouse)", () => {
     expect(funnelStats.some((s: any) => s.key === "located")).toBe(false);
   });
 
+  it("auto-dismisses analyzed jobs that score below matchThreshold instead of dropping the gate", async () => {
+    (searchGreenhouseJobs as any).mockResolvedValue({
+      jobs: [
+        makeJob("Frontend Engineer", "React"),
+        makeJob("Senior Frontend Engineer", "Vue"),
+      ],
+      errors: [],
+    });
+    (generateText as any)
+      .mockResolvedValueOnce({ text: scoreText(90) }) // clears threshold (80)
+      .mockResolvedValueOnce({ text: scoreText(40) }); // below threshold
+
+    const result = await runAutomation(automation);
+
+    expect(result.status).toBe("completed");
+    // Both still saved (kept for dedup + later manual review), just tagged
+    // differently — the threshold gates visibility, not persistence.
+    expect(result.jobsSaved).toBe(2);
+    expect(result.jobsMatched).toBe(1); // only the 90 clears the threshold
+
+    const creates = (prisma.job.create as any).mock.calls.map(
+      (c: any[]) => c[0].data,
+    );
+    const strong = creates.find((d: any) => d.matchScore === 90);
+    const weak = creates.find((d: any) => d.matchScore === 40);
+    expect(strong.discoveryStatus).toBe("new");
+    expect(weak.discoveryStatus).toBe("dismissed");
+  });
+
+  it("does not save a job when AI matching is unavailable, rather than saving it unreviewed", async () => {
+    (searchGreenhouseJobs as any).mockResolvedValue({
+      jobs: [makeJob("Frontend Engineer", "React")],
+      errors: [],
+    });
+    (generateText as any).mockRejectedValue(new Error("fetch failed"));
+
+    const result = await runAutomation(automation);
+
+    expect(result.jobsSaved).toBe(0);
+    expect((prisma.job.create as any).mock.calls).toHaveLength(0);
+  });
+
   it("completes with zero saved when nothing clears the floor", async () => {
     (searchGreenhouseJobs as any).mockResolvedValue({
       jobs: [makeJob("Chef"), makeJob("Janitor")],
@@ -356,10 +398,12 @@ describe("runAutomation (greenhouse)", () => {
       // generateText, once aiError is set by job 0's failure.
       expect(pending.length).toBe(3);
       expect(result.status).toBe("completed_with_errors");
-      // All 5 jobs persist: job 0 (and the 2 queued jobs) unanalyzed via
-      // saveUnanalyzed(), jobs 1 and 2 analyzed successfully.
-      expect((prisma.job.create as any).mock.calls.length).toBe(5);
-      expect(result.jobsSaved).toBe(5);
+      // Only jobs 1 and 2 (analyzed successfully) persist. Job 0's failure
+      // and the 2 queued jobs are skipped outright — no LLM opinion means no
+      // save, so a flaky/unavailable provider can't flood the list with
+      // unreviewed listings.
+      expect((prisma.job.create as any).mock.calls.length).toBe(2);
+      expect(result.jobsSaved).toBe(2);
       expect(result.jobsProcessed).toBe(2); // analyzed
       expect(result.jobsMatched).toBe(2); // highlighted (90, 85 >= 80)
     });
