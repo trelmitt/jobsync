@@ -37,6 +37,7 @@ interface MapperInput {
   automationId: string;
   matchScore: number;
   matchData: string;
+  discoveryStatus?: DiscoveryStatus;
 }
 
 interface MapperOutput {
@@ -62,7 +63,14 @@ interface MapperOutput {
 export async function mapScrapedJobToJobRecord(
   input: MapperInput
 ): Promise<MapperOutput> {
-  const { scrapedJob, userId, automationId, matchScore, matchData } = input;
+  const {
+    scrapedJob,
+    userId,
+    automationId,
+    matchScore,
+    matchData,
+    discoveryStatus = "new",
+  } = input;
 
   // Shares the same resolve-or-create helpers (and canonical match key) as the
   // add_job path, so a company/title discovered here resolves to the same
@@ -96,7 +104,7 @@ export async function mapScrapedJobToJobRecord(
     locationId: location?.id ?? null,
     matchScore,
     matchData,
-    discoveryStatus: "new",
+    discoveryStatus,
     discoveredAt: new Date(),
   };
 }
