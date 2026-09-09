@@ -15,23 +15,23 @@ export async function getOwnerId(): Promise<string | null> {
 }
 
 export interface PartnerMomentum {
-  applicationsThisWeek: number;
-  activeApplications: number;
-  interviewing: number;
-  offers: number;
+  totalTracked: number;
+  addedThisWeek: number;
+  companies: number;
+  roles: number;
 }
 
 export async function getPartnerMomentum(): Promise<PartnerMomentum> {
   const uid = await getOwnerId();
-  if (!uid) return { applicationsThisWeek: 0, activeApplications: 0, interviewing: 0, offers: 0 };
+  if (!uid) return { totalTracked: 0, addedThisWeek: 0, companies: 0, roles: 0 };
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const [applicationsThisWeek, activeApplications, interviewing, offers] = await Promise.all([
-    prisma.job.count({ where: { userId: uid, appliedDate: { gte: weekAgo } } }),
-    prisma.job.count({ where: { userId: uid, Status: { value: { in: ["applied", "interview"] } } } }),
-    prisma.job.count({ where: { userId: uid, Status: { value: "interview" } } }),
-    prisma.job.count({ where: { userId: uid, Status: { value: "offer" } } }),
+  const [totalTracked, addedThisWeek, companies, roles] = await Promise.all([
+    prisma.job.count({ where: { userId: uid } }),
+    prisma.job.count({ where: { userId: uid, createdAt: { gte: weekAgo } } }),
+    prisma.job.findMany({ where: { userId: uid }, distinct: ["companyId"], select: { companyId: true } }).then((r) => r.length),
+    prisma.job.findMany({ where: { userId: uid }, distinct: ["jobTitleId"], select: { jobTitleId: true } }).then((r) => r.length),
   ]);
-  return { applicationsThisWeek, activeApplications, interviewing, offers };
+  return { totalTracked, addedThisWeek, companies, roles };
 }
 
 export async function getSharedJobs() {

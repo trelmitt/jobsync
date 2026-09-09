@@ -31,6 +31,7 @@ export const APP_CONSTANTS = {
   ACTIVITY_BREAK_MIN_MINUTES: 5,
   ACTIVITY_BREAK_MAX_MINUTES: 60,
   RECENT_NUM_JOBS_ACTIVITIES: 10,
+  CADENCE_STALE_DAYS: 14, // jobs with no activity in this many days get flagged for follow-up
   AI_SLOW_RESPONSE_THRESHOLD_MS: 15_000, // 15 seconds
   INTERSECTION_OBSERVER_THRESHOLD: 0.1,
   SIDEBAR_STORAGE_KEY: "sidebar-expanded",

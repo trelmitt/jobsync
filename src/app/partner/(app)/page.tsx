@@ -7,7 +7,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SuggestForm } from "@/components/partner/SuggestForm";
-import { Briefcase, TrendingUp, CalendarClock, Trophy } from "lucide-react";
+import { Briefcase, TrendingUp, Building2, FileText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -40,10 +40,10 @@ export default async function PartnerDashboard() {
   ]);
 
   const tiles = [
-    { label: "Applied this week", value: momentum.applicationsThisWeek, icon: TrendingUp },
-    { label: "Active applications", value: momentum.activeApplications, icon: Briefcase },
-    { label: "Interviewing", value: momentum.interviewing, icon: CalendarClock },
-    { label: "Offers", value: momentum.offers, icon: Trophy },
+    { label: "Total tracked", value: momentum.totalTracked, icon: Briefcase },
+    { label: "Added this week", value: momentum.addedThisWeek, icon: TrendingUp },
+    { label: "Companies", value: momentum.companies, icon: Building2 },
+    { label: "Roles", value: momentum.roles, icon: FileText },
   ];
 
   const byStage = new Map<string, typeof jobs>();
