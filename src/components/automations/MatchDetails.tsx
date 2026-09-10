@@ -21,9 +21,12 @@ interface LegacyMatchData {
 interface MatchDetailsProps {
   matchData: (JobMatchData & LegacyMatchData) | null;
   discoveredAt?: Date;
+  // Quick-scan mode for the swipe inbox: clamps the write-up and drops the
+  // resume/provider/date footer, which isn't decision-relevant for a swipe.
+  compact?: boolean;
 }
 
-export function MatchDetails({ matchData, discoveredAt }: MatchDetailsProps) {
+export function MatchDetails({ matchData, discoveredAt, compact }: MatchDetailsProps) {
   const html = useMemo(
     () => (matchData?.body ? md.render(matchData.body) : ""),
     [matchData?.body],
@@ -59,13 +62,19 @@ export function MatchDetails({ matchData, discoveredAt }: MatchDetailsProps) {
       </div>
 
       {html ? (
-        <div className="text-sm leading-relaxed [&_p]:mt-2 [&_ul]:mt-2 [&_ol]:mt-2 [&_h2]:mt-4 [&_h2]:font-semibold">
+        <div
+          className={`text-sm leading-relaxed [&_p]:mt-2 [&_ul]:mt-2 [&_ol]:mt-2 [&_h2]:mt-4 [&_h2]:font-semibold ${
+            compact ? "line-clamp-3 [&_h2]:hidden" : ""
+          }`}
+        >
           <TipTapContentViewer content={html} />
         </div>
       ) : null}
 
       {matchData.opportunitySummary && (
-        <p className="text-sm text-muted-foreground">
+        <p
+          className={`text-sm text-muted-foreground ${compact ? "line-clamp-2" : ""}`}
+        >
           <span className="font-medium text-foreground">Opportunity fit: </span>
           {matchData.opportunitySummary}
         </p>
@@ -73,47 +82,51 @@ export function MatchDetails({ matchData, discoveredAt }: MatchDetailsProps) {
 
       {!html && matchData.summary ? (
         <div className="space-y-2">
-          <p className="text-sm">{matchData.summary}</p>
-          <p className="text-xs text-muted-foreground italic">
-            This match was saved before the latest update. Re-run the match for
-            the full breakdown.
-          </p>
+          <p className={`text-sm ${compact ? "line-clamp-3" : ""}`}>{matchData.summary}</p>
+          {!compact && (
+            <p className="text-xs text-muted-foreground italic">
+              This match was saved before the latest update. Re-run the match for
+              the full breakdown.
+            </p>
+          )}
         </div>
       ) : null}
 
-      <div className="text-xs text-muted-foreground space-y-1">
-        {matchData.resumeTitle && (
+      {!compact && (
+        <div className="text-xs text-muted-foreground space-y-1">
+          {matchData.resumeTitle && (
+            <p>
+              Matched with resume:{" "}
+              {matchData.resumeId ? (
+                <Link
+                  href={`/dashboard/profile/resume/${matchData.resumeId}`}
+                  className="font-medium underline hover:text-foreground"
+                >
+                  {matchData.resumeTitle}
+                </Link>
+              ) : (
+                <span className="font-medium">{matchData.resumeTitle}</span>
+              )}
+            </p>
+          )}
+          {matchData.provider && (
+            <p>
+              Model:{" "}
+              <span className="font-medium">
+                {matchData.provider}
+                {matchData.model ? ` / ${matchData.model}` : ""}
+              </span>
+            </p>
+          )}
           <p>
-            Matched with resume:{" "}
-            {matchData.resumeId ? (
-              <Link
-                href={`/dashboard/profile/resume/${matchData.resumeId}`}
-                className="font-medium underline hover:text-foreground"
-              >
-                {matchData.resumeTitle}
-              </Link>
-            ) : (
-              <span className="font-medium">{matchData.resumeTitle}</span>
-            )}
+            {matchData.matchedAt
+              ? `Matched on ${format(new Date(matchData.matchedAt), "MMM d, yyyy 'at' h:mm a")}`
+              : discoveredAt
+                ? `Discovered on ${format(new Date(discoveredAt), "MMM d, yyyy 'at' h:mm a")}`
+                : null}
           </p>
-        )}
-        {matchData.provider && (
-          <p>
-            Model:{" "}
-            <span className="font-medium">
-              {matchData.provider}
-              {matchData.model ? ` / ${matchData.model}` : ""}
-            </span>
-          </p>
-        )}
-        <p>
-          {matchData.matchedAt
-            ? `Matched on ${format(new Date(matchData.matchedAt), "MMM d, yyyy 'at' h:mm a")}`
-            : discoveredAt
-              ? `Discovered on ${format(new Date(discoveredAt), "MMM d, yyyy 'at' h:mm a")}`
-              : null}
-        </p>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

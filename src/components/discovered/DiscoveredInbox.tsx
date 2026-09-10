@@ -6,8 +6,14 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { CircularScore } from "@/components/CircularScore";
 import { MatchDetails } from "@/components/automations/MatchDetails";
+import { TipTapContentViewer } from "@/components/TipTapContentViewer";
 import { toastError } from "@/lib/toast";
 import {
   Building2,
@@ -17,6 +23,9 @@ import {
   Clock,
   CheckCircle2,
   Sparkles,
+  ChevronDown,
+  FileText,
+  ClipboardList,
 } from "lucide-react";
 import type { DiscoveredJob } from "@/models/automation.model";
 import { getWorkplaceTypeLabel } from "@/models/job.model";
@@ -54,6 +63,8 @@ interface DiscoveredInboxProps {
 export function DiscoveredInbox({ initialJobs }: DiscoveredInboxProps) {
   const [queue, setQueue] = useState(initialJobs);
   const [pending, setPending] = useState(false);
+  const [showDescription, setShowDescription] = useState(false);
+  const [showFullReview, setShowFullReview] = useState(false);
   const current = queue[0];
 
   const [style, api] = useSpring(() => ({ x: 0, y: 0, rotate: 0, opacity: 1 }));
@@ -84,6 +95,8 @@ export function DiscoveredInbox({ initialJobs }: DiscoveredInboxProps) {
     }
 
     setQueue((q) => q.slice(1));
+    setShowDescription(false);
+    setShowFullReview(false);
     api.set({ x: 0, y: 0, rotate: 0, opacity: 0 });
     api.start({ opacity: 1, config: { tension: 250, friction: 25 } });
     setPending(false);
@@ -168,8 +181,34 @@ export function DiscoveredInbox({ initialJobs }: DiscoveredInboxProps) {
               <CircularScore score={current.matchScore} size="md" animate={false} />
             </div>
 
-            <div className="max-h-[40vh] overflow-y-auto">
-              <MatchDetails matchData={parsedMatchData} discoveredAt={current.discoveredAt} />
+            <MatchDetails matchData={parsedMatchData} compact />
+
+            <div className="space-y-2 border-t pt-3">
+              <Collapsible open={showDescription} onOpenChange={setShowDescription}>
+                <CollapsibleTrigger className="flex w-full items-center gap-2 text-sm font-medium hover:opacity-80">
+                  <ClipboardList className="h-4 w-4" />
+                  Job description
+                  <ChevronDown
+                    className={`h-4 w-4 ml-auto transition-transform ${showDescription ? "rotate-180" : ""}`}
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2 max-h-[35vh] overflow-y-auto text-sm text-muted-foreground">
+                  <TipTapContentViewer content={current.description ?? ""} />
+                </CollapsibleContent>
+              </Collapsible>
+
+              <Collapsible open={showFullReview} onOpenChange={setShowFullReview}>
+                <CollapsibleTrigger className="flex w-full items-center gap-2 text-sm font-medium hover:opacity-80">
+                  <FileText className="h-4 w-4" />
+                  Full AI review
+                  <ChevronDown
+                    className={`h-4 w-4 ml-auto transition-transform ${showFullReview ? "rotate-180" : ""}`}
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2 max-h-[35vh] overflow-y-auto">
+                  <MatchDetails matchData={parsedMatchData} discoveredAt={current.discoveredAt} />
+                </CollapsibleContent>
+              </Collapsible>
             </div>
           </CardContent>
         </Card>
