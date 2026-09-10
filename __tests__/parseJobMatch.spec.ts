@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseJobMatch } from "@/lib/ai/jobMatch/parse";
+import { parseJobMatch, parseJobFacts } from "@/lib/ai/jobMatch/parse";
 
 describe("parseJobMatch", () => {
   it("parses a well-formed scores line and strips it from the body", () => {
@@ -42,5 +42,35 @@ describe("parseJobMatch", () => {
     );
     expect(scores).toEqual({ matchScore: 50, recommendation: "partial match" });
     expect(body).toBe("Body");
+  });
+});
+
+describe("parseJobFacts", () => {
+  it("parses a well-formed facts line and strips it from the body", () => {
+    const { facts, body } = parseJobFacts(
+      'FACTS: Role: backend engineer on payments; Salary/OTE: $150K-$180K; Bonus/Incentives: 10% annual bonus; Equity: 0.1-0.2% RSUs; Benefits: health, 401k match; Remote: Hybrid, 2 days/week\n\n## Summary\nStrong fit',
+    );
+    expect(facts).toEqual({
+      role: "backend engineer on payments",
+      salary: "$150K-$180K",
+      bonusIncentives: "10% annual bonus",
+      equity: "0.1-0.2% RSUs",
+      benefits: "health, 401k match",
+      remote: "Hybrid, 2 days/week",
+    });
+    expect(body).toBe("## Summary\nStrong fit");
+  });
+
+  it('carries "Not listed" through verbatim for unmentioned fields', () => {
+    const { facts } = parseJobFacts(
+      "FACTS: Role: designer; Salary/OTE: Not listed; Bonus/Incentives: Not listed; Equity: Not listed; Benefits: Not listed; Remote: Not listed\n\nBody",
+    );
+    expect(facts?.salary).toBe("Not listed");
+  });
+
+  it("returns undefined facts when no facts line is present", () => {
+    const { facts, body } = parseJobFacts("## Summary\nNo facts header here");
+    expect(facts).toBeUndefined();
+    expect(body).toBe("## Summary\nNo facts header here");
   });
 });

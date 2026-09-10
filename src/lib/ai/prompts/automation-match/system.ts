@@ -32,4 +32,10 @@ SCORES: match=<0-100> recommendation=<strong|good|partial|weak>
 
 Pick the recommendation token consistent with the match score (strong 80-100, good 65-79, partial 50-64, weak <50).
 
+The SECOND line MUST be a facts line pulled from the job description (not the resume), in this exact format:
+
+FACTS: Role: <what the role entails, <=15 words>; Salary/OTE: <posted range or "Not listed">; Bonus/Incentives: <variable comp, commission, sign-on or spot bonuses, or "Not listed">; Equity: <stock/equity/RSUs, or "Not listed">; Benefits: <health/401k/PTO highlights, or "Not listed">; Remote: <remote/hybrid/onsite policy, or "Not listed">
+
+Use "Not listed" verbatim for any field the job description doesn't state — never guess or infer a value that isn't written.
+
 Then a blank line, then a single "## Summary" section — 2-3 sentences covering overall fit, the biggest strength, and the main gap or action item. Do NOT output any other "##" sections (no Requirements, Skills, Experience, Keywords, Deal Breakers, or Tailoring Tips). Do NOT output JSON. Do NOT wrap the response in code fences. Be honest about gaps.`;
