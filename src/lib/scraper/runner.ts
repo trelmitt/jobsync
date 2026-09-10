@@ -1125,14 +1125,16 @@ async function runAtsRun(
   }
 }
 
-interface MatchResult {
+export interface MatchResult {
   success: boolean;
   score: number;
   data?: object;
   error?: string;
 }
 
-async function matchJobToResume(
+// Exported so one-off backfill scripts can re-score already-saved jobs
+// without re-running the whole automation (no re-scrape needed).
+export async function matchJobToResume(
   job: JobDetails,
   resume: ResumeWithSections,
   sourceBoard: JobBoard,
