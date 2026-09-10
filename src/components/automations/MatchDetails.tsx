@@ -4,9 +4,58 @@ import { useMemo } from "react";
 import Link from "next/link";
 import MarkdownIt from "markdown-it";
 import { format } from "date-fns";
+import {
+  DollarSign,
+  TrendingUp,
+  Gem,
+  HeartHandshake,
+  Home,
+  type LucideIcon,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TipTapContentViewer } from "@/components/TipTapContentViewer";
-import type { JobMatchData } from "@/models/ai.schemas";
+import type { JobFacts, JobMatchData } from "@/models/ai.schemas";
+
+const NOT_LISTED = "not listed";
+
+function FactBadge({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}) {
+  const present = value && value.trim().toLowerCase() !== NOT_LISTED;
+  return (
+    <Badge variant={present ? "secondary" : "outline"} className="gap-1 font-normal">
+      <Icon className="h-3 w-3" />
+      {present ? (
+        <span className="max-w-[220px] truncate">{value}</span>
+      ) : (
+        <span className="text-muted-foreground">{label}: not listed</span>
+      )}
+    </Badge>
+  );
+}
+
+function QuickFacts({ facts }: { facts: JobFacts }) {
+  const roleLine =
+    facts.role && facts.role.trim().toLowerCase() !== NOT_LISTED ? facts.role : null;
+  return (
+    <div className="space-y-1.5">
+      {roleLine && <p className="text-sm">{roleLine}</p>}
+      <div className="flex flex-wrap gap-1.5">
+        <FactBadge icon={DollarSign} label="Salary/OTE" value={facts.salary} />
+        <FactBadge icon={TrendingUp} label="Bonus/Incentives" value={facts.bonusIncentives} />
+        <FactBadge icon={Gem} label="Equity" value={facts.equity} />
+        <FactBadge icon={HeartHandshake} label="Benefits" value={facts.benefits} />
+        <FactBadge icon={Home} label="Remote" value={facts.remote} />
+      </div>
+    </div>
+  );
+}
 
 // html:false escapes any raw HTML in the model output; TipTapContentViewer
 // further strips unrecognized tags, so the rendered analysis is safe.
@@ -60,6 +109,8 @@ export function MatchDetails({ matchData, discoveredAt, compact }: MatchDetailsP
             </Badge>
           )}
       </div>
+
+      {matchData.facts && <QuickFacts facts={matchData.facts} />}
 
       {html ? (
         <div

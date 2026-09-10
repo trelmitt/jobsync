@@ -4,7 +4,7 @@ export type {
   JobMatchResult,
   JobMatchData,
 } from "@/models/ai.schemas";
-export { parseJobMatch } from "./jobMatch/parse";
+export { parseJobMatch, parseJobFacts } from "./jobMatch/parse";
 
 // Prompts
 export {

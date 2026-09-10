@@ -1,4 +1,5 @@
 import type {
+  JobFacts,
   JobMatchRecommendation,
   JobMatchResult,
   JobMatchScores,
@@ -42,4 +43,28 @@ export function parseJobMatch(raw: string): JobMatchResult {
   body = body.replace(/^\s+/, "");
 
   return { scores, body };
+}
+
+// Automation-match only: the second output line, one field per candidate
+// priority (salary/OTE, bonus/incentives, equity, benefits, remote). The
+// prompt contract fixes the label order, so a single anchored regex parses
+// it the same way SCORES_RE does above.
+const FACTS_RE =
+  /FACTS:\s*Role:\s*([^;]*);\s*Salary\/OTE:\s*([^;]*);\s*Bonus\/Incentives:\s*([^;]*);\s*Equity:\s*([^;]*);\s*Benefits:\s*([^;]*);\s*Remote:\s*([^\n]*)/i;
+
+export function parseJobFacts(text: string): { facts?: JobFacts; body: string } {
+  const match = text.match(FACTS_RE);
+  if (!match) return { body: text };
+
+  const facts: JobFacts = {
+    role: match[1].trim(),
+    salary: match[2].trim(),
+    bonusIncentives: match[3].trim(),
+    equity: match[4].trim(),
+    benefits: match[5].trim(),
+    remote: match[6].trim(),
+  };
+
+  const body = text.replace(match[0], "").replace(/^\s+/, "");
+  return { facts, body };
 }

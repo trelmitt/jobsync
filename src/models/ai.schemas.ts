@@ -47,6 +47,18 @@ export type JobMatchResult = {
   body: string;
 };
 
+// Quick job-posting facts pulled from the automation-match `FACTS:` line.
+// Each field is "Not listed" (verbatim, from the prompt contract) rather
+// than absent when the job description doesn't mention it.
+export type JobFacts = {
+  role: string;
+  salary: string;
+  bonusIncentives: string;
+  equity: string;
+  benefits: string;
+  remote: string;
+};
+
 // Lexical pre-rank breakdown persisted next to the LLM verdict (tuning signal).
 export type PrerankComponents = {
   titleScore: number;
@@ -81,4 +93,7 @@ export type JobMatchData = JobMatchScores & {
   opportunityRecommendation?: JobMatchRecommendation;
   opportunitySummary?: string;
   opportunityWeight?: number;
+  // Quick facts pulled from the job posting (automation match only — the
+  // full job-match and opportunity-fit prompts don't emit a FACTS line).
+  facts?: JobFacts;
 };

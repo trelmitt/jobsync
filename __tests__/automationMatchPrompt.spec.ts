@@ -12,6 +12,16 @@ describe("AUTOMATION_JOB_MATCH_SYSTEM_PROMPT", () => {
     expect(AUTOMATION_JOB_MATCH_SYSTEM_PROMPT).toContain("## Summary");
   });
 
+  it("requires the FACTS line with the fixed field order", () => {
+    expect(AUTOMATION_JOB_MATCH_SYSTEM_PROMPT).toContain(
+      "FACTS: Role: <what the role entails, <=15 words>; Salary/OTE:",
+    );
+    expect(AUTOMATION_JOB_MATCH_SYSTEM_PROMPT).toContain("Bonus/Incentives:");
+    expect(AUTOMATION_JOB_MATCH_SYSTEM_PROMPT).toContain("Equity:");
+    expect(AUTOMATION_JOB_MATCH_SYSTEM_PROMPT).toContain("Benefits:");
+    expect(AUTOMATION_JOB_MATCH_SYSTEM_PROMPT).toContain("Remote:");
+  });
+
   it("does not contain the full-analysis section headings", () => {
     const fullSections = [
       "## Requirements",

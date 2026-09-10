@@ -23,6 +23,7 @@ import { APP_CONSTANTS } from "@/lib/constants";
 import {
   getModel,
   parseJobMatch,
+  parseJobFacts,
   AUTOMATION_JOB_MATCH_SYSTEM_PROMPT,
   buildAutomationJobMatchPrompt,
   OPPORTUNITY_FIT_SYSTEM_PROMPT,
@@ -1164,10 +1165,11 @@ ${removeHtmlTags(job.description)}
       abortSignal: signal,
     });
 
-    const { scores, body } = parseJobMatch(result.text);
+    const { scores, body: rawBody } = parseJobMatch(result.text);
     if (!scores) {
       return { success: false, score: 0, error: "No match data returned" };
     }
+    const { facts, body } = parseJobFacts(rawBody);
 
     const skillScore = scores.matchScore;
     const opportunityProfile = jobPreferences?.opportunityProfile?.trim();
@@ -1181,7 +1183,7 @@ ${removeHtmlTags(job.description)}
       return {
         success: true,
         score: skillScore,
-        data: { matchScore: skillScore, recommendation: scores.recommendation, body },
+        data: { matchScore: skillScore, recommendation: scores.recommendation, body, facts },
       };
     }
 
@@ -1207,6 +1209,7 @@ ${removeHtmlTags(job.description)}
           matchScore: blended,
           recommendation: scores.recommendation,
           body,
+          facts,
           skillScore,
           opportunityScore,
           opportunityRecommendation: parsedOpportunity.scores.recommendation,
@@ -1221,7 +1224,7 @@ ${removeHtmlTags(job.description)}
       return {
         success: true,
         score: skillScore,
-        data: { matchScore: skillScore, recommendation: scores.recommendation, body },
+        data: { matchScore: skillScore, recommendation: scores.recommendation, body, facts },
       };
     }
   } catch (error) {
