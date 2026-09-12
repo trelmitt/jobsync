@@ -10,3 +10,9 @@ export {
   deleteContactById,
   touchContact,
 } from "./contact/mutations";
+
+export {
+  getJobContacts,
+  addJobContact,
+  removeJobContact,
+} from "./contact/jobLinks";

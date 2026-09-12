@@ -40,8 +40,15 @@ import { JobSummaryCard } from "./job-details/JobSummaryCard";
 import { JobTabEmptyState } from "./job-details/JobTabEmptyState";
 import { CoverLetterTab } from "./job-details/CoverLetterTab";
 import { useAutoMatch } from "./job-details/useAutoMatch";
+import { JobContactsTab } from "./job-details/JobContactsTab";
 
-const JOB_DETAIL_TABS = ["description", "match", "letter", "notes"] as const;
+const JOB_DETAIL_TABS = [
+  "description",
+  "match",
+  "letter",
+  "notes",
+  "contacts",
+] as const;
 
 type JobDetailsProps = {
   job: JobResponse;
@@ -212,6 +219,14 @@ function JobDetails({
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="contacts">
+              Contacts
+              {(job.contactLinks?.length ?? 0) > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {job.contactLinks!.length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="description" className="mt-4">
             <Card className="p-6">
@@ -255,6 +270,16 @@ function JobDetails({
                 jobId={job.id}
                 openTrigger={noteOpenTrigger}
                 onCountChange={setNotesCount}
+              />
+            </Card>
+          </TabsContent>
+          <TabsContent value="contacts" className="mt-4">
+            <Card className="p-6">
+              <JobContactsTab
+                jobId={job.id}
+                links={job.contactLinks ?? []}
+                companies={companies}
+                locations={locations}
               />
             </Card>
           </TabsContent>
