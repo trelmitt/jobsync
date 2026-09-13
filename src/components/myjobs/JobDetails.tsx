@@ -235,7 +235,7 @@ function JobDetails({
           </TabsContent>
           <TabsContent value="match" className="mt-4">
             <Card className="p-6">
-              {parsedMatchData ? (
+              {parsedMatchData && parsedMatchData.analyzed !== false ? (
                 <MatchDetails matchData={parsedMatchData} />
               ) : (
                 <JobTabEmptyState
