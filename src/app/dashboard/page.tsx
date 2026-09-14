@@ -6,12 +6,14 @@ import {
   getRecentActivities,
   getRecentJobs,
   getStaleJobs,
+  getStaleContacts,
 } from "@/actions/dashboard.actions";
 import ActivityCalendar from "@/components/dashboard/ActivityCalendar";
 import JobsActivityCard from "@/components/dashboard/JobsActivityCard";
 import JobsApplied from "@/components/dashboard/JobsAppliedCard";
 import RecentCardToggle from "@/components/dashboard/RecentCardToggle";
 import WeeklyBarChartToggle from "@/components/dashboard/WeeklyBarChartToggle";
+import { StaleContactsSection } from "@/components/dashboard/StaleContactsSection";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
@@ -33,6 +35,7 @@ export default async function Dashboard() {
     activitiesData,
     activityCalendarData,
     staleJobs,
+    staleContacts,
   ] = await Promise.all([
     getJobsActivitySummary(7),
     getJobsActivitySummary(30),
@@ -42,6 +45,7 @@ export default async function Dashboard() {
     getActivityDataForPeriod(),
     getActivityCalendarData(),
     getStaleJobs(),
+    getStaleContacts(),
   ]);
   const activityCalendarDataKeys = Object.keys(activityCalendarData);
   const activitiesDataKeys = (data: string[]) =>
@@ -110,6 +114,7 @@ export default async function Dashboard() {
           </div>
         </div>
       )}
+      <StaleContactsSection contacts={staleContacts} />
       <div className="@3xl/main:relative @3xl/main:self-stretch">
         <RecentCardToggle jobs={recentJobs} activities={recentActivities} />
       </div>
