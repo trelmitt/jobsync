@@ -208,14 +208,21 @@ model OtherSection {
 }
 
 model Contact {
-  id          String     @id @default(uuid())
-  name        String
-  email       String
-  createdAt   DateTime
-  createdBy   String // userId
-  user        User       @relation(fields: [createdBy], references: [id])
-  Interview   Interview? @relation(fields: [interviewId], references: [id])
-  interviewId String?
+  id            String     @id @default(uuid())
+  name          String
+  email         String
+  createdAt     DateTime
+  createdBy     String // userId
+  user          User       @relation(fields: [createdBy], references: [id])
+  Interview     Interview? @relation(fields: [interviewId], references: [id])
+  interviewId   String?
+  Job           Job?       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId         String?
+  // Bumped by the "mark followed up" action; drives the 14-day stale-contact
+  // reminder on the dashboard the same way Job.createdAt drives stale jobs.
+  lastTouchedAt DateTime   @default(now())
+
+  @@index([jobId])
 }
 
 model JobTitle {
@@ -311,6 +318,7 @@ model Job {
   Location    Location?   @relation(fields: [locationId], references: [id])
   locationId  String?
   Interview   Interview[]
+  Contacts      Contact[]
   Resume        Resume?      @relation(fields: [resumeId], references: [id])
   resumeId      String?
   CoverLetter   CoverLetter? @relation(fields: [coverLetterId], references: [id])

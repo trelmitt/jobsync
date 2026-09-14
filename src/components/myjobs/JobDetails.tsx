@@ -48,6 +48,7 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog";
 import { NotesSection } from "./NotesSection";
+import { ContactsCollapsibleSection } from "./ContactsCollapsibleSection";
 import { useState, useMemo } from "react";
 import { DownloadFileButton } from "../profile/DownloadFileButton";
 import { MatchDetails } from "../automations/MatchDetails";
@@ -403,6 +404,7 @@ function JobDetails({
             </div>
           )}
           <NotesSection jobId={job.id} openTrigger={noteOpenTrigger} />
+          <ContactsCollapsibleSection jobId={job.id} />
           <CardFooter></CardFooter>
         </Card>
       )}
