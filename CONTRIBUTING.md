@@ -74,6 +74,11 @@ This project follows a [Code of Conduct](./CODE_OF_CONDUCT.md). By participating
    npm run dev
    ```
 
+> **Docker + dev.db:** if `jobsync_app` is running in Docker, never run `sqlite3`
+> or `prisma` CLI commands against `jobsyncdb/data/dev.db` from the host —
+> concurrent access has corrupted the database before. Use
+> `./scripts/db-shell.sh "<SQL>"` instead; see [CLAUDE.md](./CLAUDE.md) for why.
+
 ---
 
 ## How to Contribute
