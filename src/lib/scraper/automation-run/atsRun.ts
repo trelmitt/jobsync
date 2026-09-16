@@ -141,6 +141,13 @@ export async function runAtsRun(
       "info",
       `${label} ${pipeline.funnel.floorSurvivors} jobs cleared the relevance floor${capped}`,
     );
+    if (pipeline.funnel.scoreCut > 0) {
+      automationLogger.log(
+        automation.id,
+        "info",
+        `${label} ${pipeline.funnel.scoreCut} of them too weakly related to analyze — skipped`,
+      );
+    }
 
     const buildFunnel = (analyzed: number, highlighted: number): string => {
       const stages: FunnelStage[] = [

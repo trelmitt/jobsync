@@ -72,6 +72,8 @@ Two tiers. **Jobs analyzed per run** (the slider in the Search step, default 10,
 
 **Save additional relevant listings** is on by default. With it on, relevant listings that did not make the cut are still saved, ranked but not yet AI-scored — they show a lexical relevance percentage and an **Analyze** button so you can score one on demand. Turn it off if you only want the scored shortlist.
 
+Listings only reach AI analysis if they are related to your search strongly enough to be worth the call — clearing the relevance floor on a single generic word is not enough. The run log shows how many were skipped as too weakly related. Everything that is analyzed is saved: listings at or above your match threshold show up as strong matches, and everything below it is saved dismissed, so it still appears in **Discovered** instead of being thrown away.
+
 ## When does it run, and can I run one now?
 
 An automation runs daily at the hour you chose, in the server's timezone, as long as its status is **active**. Open an automation to run it immediately with **Run Now** — manual runs are limited to **5 per hour**. A run in progress can be stopped with **Abort Run**.
