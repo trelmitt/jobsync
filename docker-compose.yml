@@ -22,6 +22,7 @@ services:
       - AUTH_TRUST_HOST=${AUTH_TRUST_HOST:-true}
       - TZ=${TZ:-America/Edmonton}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - MACENGINE_BASE_URL=${MACENGINE_BASE_URL:-http://host.docker.internal:2500}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}

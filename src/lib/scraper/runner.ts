@@ -75,6 +75,13 @@ function getDefaultModelForProvider(provider: AiProvider): string {
       return "anthropic/claude-3.5-sonnet";
     case AiProvider.ANTHROPIC:
       return AnthropicModel.CLAUDE_SONNET_5;
+    case AiProvider.MACENGINE:
+      // No fixed catalog (models are whatever's locally loaded) — unlike the
+      // other providers there's no safe default to guess, so require the
+      // user to have picked one in AI Settings.
+      throw new Error(
+        "No model selected for macengine. Please choose a model in AI Settings.",
+      );
   }
 }
 

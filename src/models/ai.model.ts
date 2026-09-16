@@ -21,6 +21,7 @@ export enum AiProvider {
   GEMINI = "gemini",
   OPENROUTER = "openrouter",
   ANTHROPIC = "anthropic",
+  MACENGINE = "macengine",
 }
 
 // Default models per provider

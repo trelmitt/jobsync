@@ -19,6 +19,9 @@ export const PROVIDER_FACTORIES: Record<
     createOllama({ baseURL: baseURL + "/api" })(model),
   gemini: (apiKey, model) => createGoogleGenerativeAI({ apiKey })(model),
   anthropic: (apiKey, model) => createAnthropic({ apiKey })(model),
+  // macengine speaks the OpenAI dialect and is token-free on /v1/*.
+  macengine: (baseURL, model) =>
+    createOpenAI({ baseURL: baseURL + "/v1", apiKey: "macengine" })(model),
 };
 
 export const PROVIDER_VERIFIERS: Record<
@@ -101,6 +104,41 @@ export const PROVIDER_VERIFIERS: Record<
       return {
         success: false,
         error: `Cannot connect to Ollama at ${baseUrl}. Please make sure Ollama is running.`,
+      };
+    }
+  },
+
+  macengine: async (key) => {
+    const baseUrl = key.replace(/\/+$/, "");
+    try {
+      const res = await fetch(`${baseUrl}/v1/models`, {
+        signal: AbortSignal.timeout(APP_CONSTANTS.AI_MACENGINE_LIST_TIMEOUT_MS),
+      });
+      if (!res.ok)
+        return {
+          success: false,
+          error: `Cannot connect to macengine at ${baseUrl}`,
+        };
+      return { success: true };
+    } catch (error) {
+      if (error instanceof Error && error.name === "TimeoutError") {
+        return {
+          success: false,
+          error: `macengine at ${baseUrl} did not respond in time. Please make sure it's running.`,
+        };
+      }
+      if (
+        error instanceof TypeError &&
+        /failed to parse url/i.test(error.message)
+      ) {
+        return {
+          success: false,
+          error: `Invalid macengine URL: ${baseUrl}`,
+        };
+      }
+      return {
+        success: false,
+        error: `Cannot connect to macengine at ${baseUrl}. Please make sure it's running.`,
       };
     }
   },

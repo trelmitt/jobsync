@@ -134,9 +134,27 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryEntry> = {
       sensitive: true,
     },
   },
+  macengine: {
+    id: "macengine",
+    displayName: "macengine",
+    credentialType: "base-url",
+    category: "local",
+    envVar: "MACENGINE_BASE_URL",
+    defaultCredential: "http://127.0.0.1:2500",
+    modelsEndpoint: "macengine/models",
+    parseModelsResponse: (data) => data.data?.map((m: any) => m.id) ?? [],
+    requiresRunningCheck: false,
+    supportsKeepAlive: false,
+    keyConfig: {
+      placeholder: "http://127.0.0.1:2500",
+      inputType: "text",
+      description: "Base URL for your self-hosted macengine instance",
+      sensitive: false,
+    },
+  },
 };
 
-export const AI_PROVIDERS = ["ollama", "openai", "deepseek", "openrouter", "gemini", "anthropic"] as const;
+export const AI_PROVIDERS = ["ollama", "openai", "deepseek", "openrouter", "gemini", "anthropic", "macengine"] as const;
 export type AiProviderId = (typeof AI_PROVIDERS)[number];
 
 export function getAiProviders(): ProviderRegistryEntry[] {

@@ -186,3 +186,28 @@ export async function getOllamaBaseUrl(userId?: string): Promise<string> {
   }
   return process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434";
 }
+
+export async function getDefaultMacengineBaseUrl(): Promise<string> {
+  return process.env.MACENGINE_BASE_URL || "http://127.0.0.1:2500";
+}
+
+export async function getMacengineBaseUrl(userId?: string): Promise<string> {
+  try {
+    const resolvedUserId = userId ?? (await getCurrentUser())?.id;
+    if (resolvedUserId) {
+      const apiKey = await db.apiKey.findUnique({
+        where: {
+          userId_provider: { userId: resolvedUserId, provider: "macengine" },
+        },
+      });
+      if (apiKey) {
+        if (apiKey.iv === "") return apiKey.encryptedKey;
+        const { decrypt } = await import("@/lib/encryption");
+        return decrypt(apiKey.encryptedKey, apiKey.iv);
+      }
+    }
+  } catch {
+    // Fall through to defaults
+  }
+  return process.env.MACENGINE_BASE_URL || "http://127.0.0.1:2500";
+}
