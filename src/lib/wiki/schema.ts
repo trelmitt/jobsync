@@ -19,7 +19,9 @@ export const WIKI_FEATURES = [
   "profile",
   "ai",
   "tasks",
+  "activities",
   "questions",
+  "mcp",
 ] as const;
 
 export const WIKI_STATUSES = ["draft", "stable", "deprecated"] as const;

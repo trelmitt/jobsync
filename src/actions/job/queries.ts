@@ -21,6 +21,7 @@ const JOB_LIST_SELECT = {
   Resume: true,
   CoverLetter: true,
   matchScore: true,
+  matchData: true,
   discoveryStatus: true,
   _count: { select: { Notes: true } },
 };
@@ -216,7 +217,7 @@ export const getJobsList = async (
         where: whereClause,
       }),
     ]);
-    return { success: true, data, total };
+    return { success: true, data: data.map(hideUnanalyzedScore), total };
   } catch (error) {
     const msg = "Failed to fetch jobs list. ";
     return handleError(error, msg);

@@ -192,6 +192,24 @@ describe("JobDetails – salary range", () => {
   });
 });
 
+describe("JobDetails – linked resume", () => {
+  it("links to a built resume that has no uploaded file", () => {
+    render(
+      <JobDetails
+        {...baseProps}
+        job={makeJob({
+          resumeId: "resume-1",
+          Resume: { id: "resume-1", title: "Senior Engineer Resume" },
+        })}
+      />
+    );
+
+    expect(
+      screen.getByRole("link", { name: /Senior Engineer Resume/ })
+    ).toHaveAttribute("href", "/dashboard/profile/resume/resume-1");
+  });
+});
+
 describe("JobDetails – match data display", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -237,6 +255,25 @@ describe("JobDetails – match data display", () => {
     );
     expect(screen.getByTestId("circular-score")).toHaveTextContent("72%");
     expect(screen.getByTestId("match-details")).toBeInTheDocument();
+  });
+
+  // Automation saves outside the LLM top-K hold only a keyword pre-rank.
+  it("treats an un-analyzed automation job as not matched", () => {
+    onTab("match");
+    render(
+      <JobDetails
+        {...baseProps}
+        job={makeJob({
+          matchScore: 28,
+          matchData: JSON.stringify({ prerankScore: 0.29, analyzed: false }),
+        })}
+      />,
+    );
+
+    expect(screen.queryByTestId("circular-score")).not.toBeInTheDocument();
+    expect(screen.getByText("Not matched")).toBeInTheDocument();
+    expect(screen.getByText(/no match analysis yet/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("match-details")).not.toBeInTheDocument();
   });
 });
 
