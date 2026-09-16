@@ -2,16 +2,29 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import JobsActivityCard from "@/components/dashboard/JobsActivityCard";
 
+// jsdom measures every element as 0 wide, so the card's compact threshold is
+// driven from here instead.
+const chartWidth = vi.hoisted(() => ({ value: 400 }));
+
+vi.mock("@/hooks/useElementWidth", () => ({
+  useElementWidth: () => [{ current: null }, chartWidth.value] as const,
+}));
+
 vi.mock("next-themes", () => ({
   useTheme: () => ({ resolvedTheme: "light" }),
 }));
 
 vi.mock("@nivo/pie", () => ({
-  ResponsivePie: (props: any) => (
+  Pie: (props: any) => (
     <div data-testid="donut">
       {props.data.map((slice: any) => (
         <div key={slice.id} data-testid={`slice-${slice.id}`}>
           {slice.label}:{slice.value}:{slice.color}
+          {slice.breakdown?.length
+            ? `:${slice.breakdown
+                .map((a: any) => `${a.label}=${a.hours}`)
+                .join(",")}`
+            : ""}
         </div>
       ))}
     </div>
@@ -26,6 +39,7 @@ describe("JobsActivityCard", () => {
   // "30d" decides the starting tab for every test after it.
   beforeEach(() => {
     localStorage.clear();
+    chartWidth.value = 400;
   });
 
   const data = [
@@ -39,6 +53,10 @@ describe("JobsActivityCard", () => {
           { label: "Side Project 1", hours: 9.2 },
           { label: "Learning", hours: 8.6 },
         ],
+        otherActivities: [
+          { label: "Networking", hours: 10.5 },
+          { label: "Interviewing", hours: 7 },
+        ],
         otherHours: 17.5,
         totalHours: 63.4,
       },
@@ -49,6 +67,7 @@ describe("JobsActivityCard", () => {
         jobsApplied: 34,
         jobsTrend: -12,
         topActivities: [{ label: "Job Search", hours: 6.4 }],
+        otherActivities: [],
         otherHours: 0,
         totalHours: 6.4,
       },
@@ -80,7 +99,7 @@ describe("JobsActivityCard", () => {
       "Jobsync:28.1:#2a9d90",
     );
     expect(screen.getByTestId("slice-__other__")).toHaveTextContent(
-      "Other:17.5:#94a3b8",
+      "Other:17.5:#94a3b8:Networking=10.5,Interviewing=7",
     );
   });
 
@@ -126,6 +145,23 @@ describe("JobsActivityCard", () => {
     expect(within(total).queryByText("0%")).not.toBeInTheDocument();
   });
 
+  it("holds the donut back until the card has measured itself", () => {
+    chartWidth.value = 0;
+    render(<JobsActivityCard data={data} />);
+
+    expect(screen.queryByTestId("donut")).not.toBeInTheDocument();
+  });
+
+  it("drops the trend line when the donut hole gets too small for it", () => {
+    chartWidth.value = 220;
+    render(<JobsActivityCard data={data} />);
+
+    const total = screen.getByTestId("jobs-activity-total");
+
+    expect(within(total).getByText("63.4h")).toBeInTheDocument();
+    expect(within(total).queryByText("25%")).not.toBeInTheDocument();
+  });
+
   it("says one job, not one jobs", () => {
     render(
       <JobsActivityCard
@@ -136,6 +172,7 @@ describe("JobsActivityCard", () => {
               jobsApplied: 1,
               jobsTrend: 0,
               topActivities: [{ label: "Job Search", hours: 2 }],
+              otherActivities: [],
               otherHours: 0,
               totalHours: 2,
             },
@@ -157,6 +194,7 @@ describe("JobsActivityCard", () => {
               jobsApplied: 3,
               jobsTrend: 0,
               topActivities: [],
+              otherActivities: [],
               otherHours: 0,
               totalHours: 0,
             },

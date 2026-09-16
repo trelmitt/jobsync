@@ -8,22 +8,14 @@ const base = {
 };
 
 describe("CreateAutomationSchema conditional validation", () => {
-  it("jsearch requires keywords + location", () => {
-    const result = CreateAutomationSchema.safeParse({
-      ...base,
-      jobBoard: "jsearch",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("jsearch passes with keywords + location", () => {
+  it("rejects a retired job board", () => {
     const result = CreateAutomationSchema.safeParse({
       ...base,
       jobBoard: "jsearch",
       keywords: "frontend",
       location: "Canada",
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it("greenhouse requires at least one company", () => {
@@ -90,5 +82,25 @@ describe("CreateAutomationSchema conditional validation", () => {
       },
     });
     expect(result.success).toBe(false);
+  });
+
+  it("ashby requires at least one company", () => {
+    const result = CreateAutomationSchema.safeParse({
+      ...base,
+      jobBoard: "ashby",
+      sourceConfig: { ashby: { companies: [] } },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("ashby passes with one company", () => {
+    const result = CreateAutomationSchema.safeParse({
+      ...base,
+      jobBoard: "ashby",
+      sourceConfig: {
+        ashby: { companies: [{ name: "Ramp", token: "ramp" }] },
+      },
+    });
+    expect(result.success).toBe(true);
   });
 });

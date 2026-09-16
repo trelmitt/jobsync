@@ -1,7 +1,7 @@
 "use server";
 import prisma from "@/lib/db";
 import { handleError } from "@/lib/utils";
-import { getCurrentUser } from "@/utils/user.utils";
+import { requireUser } from "./shared";
 import { generateMockActivities } from "@/lib/mock.utils";
 import {
   mockActivityTypes,
@@ -25,11 +25,7 @@ import { SALARY_RANGES } from "@/lib/data/salaryRangeData";
 
 export const generateMockActivitiesAction = async (): Promise<any> => {
   try {
-    const user = await getCurrentUser();
-
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
+    const user = await requireUser();
 
     // Check if dev mode is enabled
     if (process.env.NODE_ENV !== "development") {
@@ -116,11 +112,7 @@ export const generateMockActivitiesAction = async (): Promise<any> => {
 
 export const clearMockActivitiesAction = async (): Promise<any> => {
   try {
-    const user = await getCurrentUser();
-
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
+    const user = await requireUser();
 
     // Check if dev mode is enabled
     if (process.env.NODE_ENV !== "development") {
@@ -161,8 +153,7 @@ export const clearMockActivitiesAction = async (): Promise<any> => {
 
 export const generateMockProfileDataAction = async (): Promise<any> => {
   try {
-    const user = await getCurrentUser();
-    if (!user) throw new Error("Not authenticated");
+    const user = await requireUser();
 
     if (process.env.NODE_ENV !== "development") {
       throw new Error(
@@ -351,8 +342,7 @@ export const generateMockProfileDataAction = async (): Promise<any> => {
 
 export const clearMockProfileDataAction = async (): Promise<any> => {
   try {
-    const user = await getCurrentUser();
-    if (!user) throw new Error("Not authenticated");
+    const user = await requireUser();
 
     if (process.env.NODE_ENV !== "development") {
       throw new Error(
@@ -464,8 +454,7 @@ function pickWeightedStatus(statusMap: Map<string, string>): string {
 
 export const generateMockJobsAction = async (): Promise<any> => {
   try {
-    const user = await getCurrentUser();
-    if (!user) throw new Error("Not authenticated");
+    const user = await requireUser();
 
     if (process.env.NODE_ENV !== "development") {
       throw new Error(
@@ -553,7 +542,7 @@ export const generateMockJobsAction = async (): Promise<any> => {
       const description =
         mockJobDescriptions[getRandomInt(0, mockJobDescriptions.length - 1)];
       const salaryRange =
-        SALARY_RANGES[getRandomInt(0, SALARY_RANGES.length - 1)].id;
+        SALARY_RANGES[getRandomInt(0, SALARY_RANGES.length - 1)].value;
       const dueDate = subDays(now, daysAgo - getRandomInt(7, 21));
       const jobType = mockJobTypes[getRandomInt(0, mockJobTypes.length - 1)];
       const workplaceType =
@@ -597,8 +586,7 @@ export const generateMockJobsAction = async (): Promise<any> => {
 
 export const clearMockJobsAction = async (): Promise<any> => {
   try {
-    const user = await getCurrentUser();
-    if (!user) throw new Error("Not authenticated");
+    const user = await requireUser();
 
     if (process.env.NODE_ENV !== "development") {
       throw new Error(

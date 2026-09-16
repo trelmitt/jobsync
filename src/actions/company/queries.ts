@@ -3,111 +3,50 @@ import prisma from "@/lib/db";
 import { handleError } from "@/lib/utils";
 import { APP_CONSTANTS } from "@/lib/constants";
 import { requireUser } from "../shared";
-
-type JobCountGroup = { companyId: string; _count: { id: number } };
-
-const COMPANY_WITH_APPLIED_COUNT_SELECT = {
-  id: true,
-  label: true,
-  value: true,
-  logoUrl: true,
-  _count: {
-    select: {
-      jobsApplied: {
-        where: {
-          applied: true,
-        },
-      },
-    },
-  },
-};
-
-// Prisma can only count the `applied` relation inline, so the rejected and
-// total tallies come from separate groupBy queries and are spliced on here.
-const attachJobCounts = (
-  data: any[],
-  rejectedCounts: JobCountGroup[],
-  totalCounts: JobCountGroup[],
-) => {
-  const rejectedMap = new Map(
-    rejectedCounts.map((r) => [r.companyId, r._count.id]),
-  );
-
-  const totalMap = new Map(totalCounts.map((r) => [r.companyId, r._count.id]));
-
-  return data.map((company) => ({
-    ...company,
-    _count: {
-      ...(company._count ?? {}),
-      jobsRejected: rejectedMap.get(company.id) ?? 0,
-      jobsTotal: totalMap.get(company.id) ?? 0,
-    },
-  }));
-};
+import { getReferenceEntityList } from "../referenceList";
 
 export const getCompanyList = async (
   page: number = 1,
   limit: number = APP_CONSTANTS.RECORDS_PER_PAGE,
   countBy?: string,
   search?: string,
+  scope: "mine" | "watchlist" = "mine",
 ): Promise<any | undefined> => {
   try {
     const user = await requireUser();
-    const skip = (page - 1) * limit;
 
-    const whereClause: any = {
-      createdBy: user.id,
-    };
+    const watchlist = scope === "watchlist";
 
-    if (search) {
-      whereClause.label = { contains: search };
-    }
-
-    const [data, total, rejectedCounts, totalCounts] = await Promise.all([
-      prisma.company.findMany({
-        where: whereClause,
-        skip,
-        take: limit,
-        ...(countBy ? { select: COMPANY_WITH_APPLIED_COUNT_SELECT } : {}),
-        orderBy: {
-          jobsApplied: {
-            _count: "desc",
-          },
-        },
-      }),
-      prisma.company.count({
-        where: whereClause,
-      }),
-      countBy
-        ? prisma.job.groupBy({
-            by: ["companyId"],
-            where: {
-              userId: user.id,
-              Status: { value: "rejected" },
-            },
-            _count: { id: true },
-          })
-        : Promise.resolve([]),
-      countBy
-        ? prisma.job.groupBy({
-            by: ["companyId"],
-            where: {
-              userId: user.id,
-            },
-            _count: { id: true },
-          })
-        : Promise.resolve([]),
-    ]);
-
-    const dataWithRejected = countBy
-      ? attachJobCounts(
-          data as any[],
-          rejectedCounts as JobCountGroup[],
-          totalCounts as JobCountGroup[],
-        )
-      : data;
-
-    return { data: dataWithRejected, total };
+    return await getReferenceEntityList({
+      model: prisma.company,
+      userId: user.id,
+      fkField: "companyId",
+      appliedRelation: "jobsApplied",
+      extraSelect: {
+        logoUrl: true,
+        watched: true,
+        watchedAt: true,
+        atsProvider: true,
+        atsToken: true,
+        atsHost: true,
+      },
+      extraCounts: [
+        { key: "jobsRejected", where: { Status: { value: "rejected" } } },
+      ],
+      // A watched row sits at applied-count 0, so the default sort would bury
+      // whatever was just watched; most-recent-first is what the scope is for.
+      ...(watchlist
+        ? {
+            extraWhere: { watched: true },
+            orderBy: [{ watchedAt: "desc" }, { label: "asc" }],
+          }
+        : {}),
+      searchFields: ["label", "atsToken"],
+      page,
+      limit,
+      countBy,
+      search,
+    });
   } catch (error) {
     const msg = "Failed to fetch company list. ";
     return handleError(error, msg);

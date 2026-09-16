@@ -1,11 +1,10 @@
 import { z } from "zod";
 import { APP_CONSTANTS } from "@/lib/constants";
-import { isAtsBoard } from "./automation.model";
 // Deep-import (NOT the barrel) — utils.ts is pure; the barrel pulls scraper
 // network code into the client bundle via this file's client consumers.
 import { ATS_TOKEN_REGEX } from "@/lib/scraper/utils";
 
-export const JobBoardSchema = z.enum(["jsearch", "greenhouse", "lever"]);
+export const JobBoardSchema = z.enum(["greenhouse", "lever", "ashby"]);
 
 export const AutomationStatusSchema = z.enum(["active", "paused"]);
 
@@ -28,12 +27,12 @@ export const GreenhouseCompanySchema = z.object({
 export const GreenhouseSourceConfigSchema = z.object({
   companies: z
     .array(GreenhouseCompanySchema)
-    .max(APP_CONSTANTS.MAX_GREENHOUSE_COMPANIES),
+    .max(APP_CONSTANTS.ATS_MAX_COMPANIES),
   targetTitles: z.array(z.string().min(1).max(100)).optional(),
   keywords: z.array(z.string().min(1).max(100)).optional(),
   locations: z.array(z.string().min(1).max(100)).optional(),
   strictLocation: z.boolean().optional(),
-  topK: z.number().int().min(1).max(APP_CONSTANTS.GREENHOUSE_LISTING_CAP).optional(),
+  topK: z.number().int().min(1).max(APP_CONSTANTS.ATS_LISTING_CAP).optional(),
   saveUnanalyzed: z.boolean().optional(),
 });
 
@@ -48,12 +47,25 @@ export const LeverCompanySchema = GreenhouseCompanySchema.extend({
 export const LeverSourceConfigSchema = GreenhouseSourceConfigSchema.extend({
   companies: z
     .array(LeverCompanySchema)
-    .max(APP_CONSTANTS.MAX_GREENHOUSE_COMPANIES),
+    .max(APP_CONSTANTS.ATS_MAX_COMPANIES),
+});
+
+// Same token allowlist as Lever (rejects path/query injection at the save
+// boundary); no `host` — Ashby is single-host.
+export const AshbyCompanySchema = GreenhouseCompanySchema.extend({
+  token: z.string().regex(ATS_TOKEN_REGEX),
+});
+
+export const AshbySourceConfigSchema = GreenhouseSourceConfigSchema.extend({
+  companies: z
+    .array(AshbyCompanySchema)
+    .max(APP_CONSTANTS.ATS_MAX_COMPANIES),
 });
 
 export const SourceConfigSchema = z.object({
   greenhouse: GreenhouseSourceConfigSchema.optional(),
   lever: LeverSourceConfigSchema.optional(),
+  ashby: AshbySourceConfigSchema.optional(),
 });
 
 export const CreateAutomationSchema = z
@@ -68,33 +80,13 @@ export const CreateAutomationSchema = z
     scheduleHour: z.number().min(0).max(23),
   })
   .superRefine((data, ctx) => {
-    if (data.jobBoard === "jsearch") {
-      if (!data.keywords || data.keywords.trim().length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["keywords"],
-          message: "Keywords are required",
-        });
-      }
-      if (!data.location || data.location.trim().length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["location"],
-          message: "Location is required",
-        });
-      }
-    }
-
-    if (isAtsBoard(data.jobBoard)) {
-      const atsKey = data.jobBoard as "greenhouse" | "lever";
-      const companies = data.sourceConfig?.[atsKey]?.companies ?? [];
-      if (companies.length < 1) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["sourceConfig", atsKey, "companies"],
-          message: "Select at least one company",
-        });
-      }
+    const companies = data.sourceConfig?.[data.jobBoard]?.companies ?? [];
+    if (companies.length < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["sourceConfig", data.jobBoard, "companies"],
+        message: "Select at least one company",
+      });
     }
   });
 
@@ -110,16 +102,14 @@ export const UpdateAutomationSchema = z
     scheduleHour: z.number().min(0).max(23).optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.jobBoard && isAtsBoard(data.jobBoard)) {
-      const atsKey = data.jobBoard as "greenhouse" | "lever";
-      const companies = data.sourceConfig?.[atsKey]?.companies ?? [];
-      if (companies.length < 1) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["sourceConfig", atsKey, "companies"],
-          message: "Select at least one company",
-        });
-      }
+    if (!data.jobBoard) return;
+    const companies = data.sourceConfig?.[data.jobBoard]?.companies ?? [];
+    if (companies.length < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["sourceConfig", data.jobBoard, "companies"],
+        message: "Select at least one company",
+      });
     }
   });
 

@@ -3,7 +3,7 @@ import {
   passesFloor,
   locationMatches,
   buildIdf,
-} from "@/lib/scraper/greenhouse/rank";
+} from "@/lib/scraper/ats/rank";
 import type { JobDetails } from "@/lib/scraper/types";
 
 function job(overrides: Partial<JobDetails>): JobDetails {
@@ -31,6 +31,16 @@ describe("locationMatches", () => {
   it("case-insensitive substring against free-text location", () => {
     expect(locationMatches("SF | NYC", ["nyc"])).toBe(true);
     expect(locationMatches("San Francisco, CA", ["new york"])).toBe(false);
+  });
+
+  it("matches whole terms only, never a substring of a longer word", () => {
+    const binance =
+      "Asia, Hong Kong, Taiwan, Taipei, Australia, Brisbane, Australia, Sydney";
+    expect(locationMatches(binance, ["Canada", "US"])).toBe(false);
+    expect(locationMatches("Minsk, Belarus", ["US"])).toBe(false);
+    expect(locationMatches("Houston, TX", ["US"])).toBe(false);
+    expect(locationMatches("New York, US", ["Canada", "US"])).toBe(true);
+    expect(locationMatches("Remote - US", ["US"])).toBe(true);
   });
 });
 
@@ -68,7 +78,7 @@ describe("scoreJob", () => {
     expect(components.keywordHits.sort()).toEqual(["node", "react"]);
   });
 
-  it("false-positive suppression: off-title role with one stray keyword ranks low and fails floor", () => {
+  it("false-positive suppression: off-title role with one stray keyword ranks below the real one", () => {
     const sales = scoreJob(
       job({ title: "Account Executive", description: "react to client needs" }),
       ["Frontend Engineer"],
@@ -84,7 +94,9 @@ describe("scoreJob", () => {
       [],
     );
     expect(real.score).toBeGreaterThan(sales.score);
-    expect(passesFloor(sales.components)).toBe(false);
+    // A stray hit clears the minimum-signal floor; ranking, not the gate, is
+    // what keeps it out of the top-K.
+    expect(passesFloor(sales.components)).toBe(true);
     expect(passesFloor(real.components)).toBe(true);
   });
 
@@ -195,19 +207,13 @@ describe("passesFloor", () => {
     ).toBe(true);
   });
 
-  it(">=2 keyword hits passes", () => {
+  it(">=1 keyword hit passes", () => {
     expect(
-      passesFloor({ ...base, titleHits: [], keywordHits: ["react", "node"] }),
+      passesFloor({ ...base, titleHits: [], keywordHits: ["react"] }),
     ).toBe(true);
   });
 
-  it("1 stray keyword + no title fails", () => {
-    expect(
-      passesFloor({ ...base, titleHits: [], keywordHits: ["react"] }),
-    ).toBe(false);
-  });
-
-  it("unconventional title rescued by 2 keyword hits", () => {
+  it("unconventional title rescued by a keyword hit", () => {
     expect(
       passesFloor({
         ...base,

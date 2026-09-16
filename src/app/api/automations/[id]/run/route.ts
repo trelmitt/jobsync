@@ -11,8 +11,9 @@ import {
 import { PROVIDER_VERIFIERS } from "@/lib/ai/provider-registry.server";
 import { getOllamaBaseUrl } from "@/actions/apiKey.actions";
 import { AiProvider } from "@/models/ai.model";
-import type { JobBoard } from "@/models/automation.model";
+import { isRetiredBoard, type JobBoard } from "@/models/automation.model";
 import { APP_CONSTANTS } from "@/lib/constants";
+import { log } from "@/lib/telemetry";
 
 const recentRuns = new Map<string, number[]>();
 
@@ -58,6 +59,15 @@ export async function POST(
 
     if (!automation) {
       return NextResponse.json({ message: "Automation not found" }, { status: 404 });
+    }
+
+    if (isRetiredBoard(automation.jobBoard)) {
+      return NextResponse.json(
+        {
+          message: `The ${automation.jobBoard} job board has been removed. Delete this automation and create a new one.`,
+        },
+        { status: 400 }
+      );
     }
 
     if (!automation.resume) {
@@ -132,15 +142,22 @@ export async function POST(
       updatedAt: automation.updatedAt,
     }).catch((err) => {
       if (err instanceof AutomationAlreadyRunningError) {
-        console.log(`Skipping manual run for ${automation.id} - run already in progress`);
+        log.info("Skipping manual run - run already in progress", {
+          "automation.id": automation.id,
+          "automation.name": automation.name,
+        });
         return;
       }
-      console.error("Background automation run failed:", err);
+      log.error("Background automation run failed", {
+        "automation.id": automation.id,
+        "automation.name": automation.name,
+        error: String(err),
+      });
     });
 
     return NextResponse.json({ success: true, started: true });
   } catch (error) {
-    console.error("Manual run error:", error);
+    log.error("Manual run error", { error: String(error) });
     const message = error instanceof Error ? error.message : "Run failed";
     return NextResponse.json({ success: false, message }, { status: 500 });
   }

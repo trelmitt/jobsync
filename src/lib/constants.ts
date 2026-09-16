@@ -14,6 +14,9 @@ import {
 
 export const APP_CONSTANTS = {
   RECORDS_PER_PAGE: 25,
+  // Page size for the ATS board directory (browse + typeahead). Kept here so
+  // the pager and searchAtsCompanies can never disagree.
+  ATS_COMPANY_PAGE_SIZE: 50,
   MAX_AUTOMATIONS_PER_USER: 10,
   MAX_JOB_TAGS: 10,
   MIN_QUESTION_LENGTH: 5,
@@ -104,15 +107,20 @@ export const APP_CONSTANTS = {
   // Ollama runs sequentially since it serializes on the GPU).
   AUTOMATION_MATCH_CONCURRENCY: 3,
 
+  // Shared ATS tuning (applies to every job board provider)
+  ATS_MAX_COMPANIES: 25, // per automation
+  ATS_LISTING_CAP: 50, // safety ceiling applied after the relevance floor
+  ATS_FLOOR_MIN_TITLE_HITS: 1,
+  ATS_FLOOR_MIN_KEYWORD_HITS: 1,
+  // Minimum weighted prerank score to spend an LLM call on. Measured against
+  // real runs: nothing scoring below this ever exceeded a 6% AI match.
+  ATS_MIN_PRERANK_SCORE: 0.1,
+  ATS_TITLE_WEIGHT: 0.6,
+  ATS_SKILL_WEIGHT: 0.4,
+
   // Greenhouse job source
   GREENHOUSE_BASE_URL: "https://boards-api.greenhouse.io/v1/boards",
   GREENHOUSE_BOARD_URL: "https://boards.greenhouse.io", // public job board (not API)
-  MAX_GREENHOUSE_COMPANIES: 25, // per automation
-  GREENHOUSE_LISTING_CAP: 50, // safety ceiling applied after the relevance floor
-  GREENHOUSE_FLOOR_MIN_TITLE_HITS: 1,
-  GREENHOUSE_FLOOR_MIN_KEYWORD_HITS: 2,
-  GREENHOUSE_TITLE_WEIGHT: 0.6,
-  GREENHOUSE_SKILL_WEIGHT: 0.4,
   GREENHOUSE_FETCH_TIMEOUT_MS: 25_000, // per-board AbortController timeout
   GREENHOUSE_FETCH_CONCURRENCY: 5,
 
@@ -126,6 +134,12 @@ export const APP_CONSTANTS = {
   LEVER_PAGE_DELAY_MS: 150, // politeness delay between sequential pages
   LEVER_FETCH_TIMEOUT_MS: 25_000, // wraps the WHOLE paginated loop per board
   LEVER_FETCH_CONCURRENCY: 5,
+
+  // Ashby (public posting API — unauthenticated, whole board in one call)
+  ASHBY_BASE_URL: "https://api.ashbyhq.com/posting-api/job-board",
+  ASHBY_JOB_URL: "https://jobs.ashbyhq.com", // public board page (not API)
+  ASHBY_FETCH_TIMEOUT_MS: 25_000, // per-board AbortController timeout
+  ASHBY_FETCH_CONCURRENCY: 5,
 
   // MCP server settings
   MCP_DUPLICATE_WINDOW_DAYS: 30,
@@ -199,6 +213,22 @@ export const APP_CONSTANTS = {
   // the user never chose.
   // Must not be "ai-panel-width" — that key belongs to the three AI sheets.
   AGENT_CHAT_PANEL_WIDTH_KEY: "agent-chat-width",
+
+  // Telemetry (OTLP export)
+  // Flush cadence. A batch is never serialized in the enqueueing caller's
+  // stack — reaching the batch size only arms the timer.
+  TELEMETRY_FLUSH_INTERVAL_MS: 5_000,
+  // Consecutive-failure backoff, resets to the first entry on any success.
+  // A collector down for a day is retried a few dozen times, not 17,000.
+  TELEMETRY_BACKOFF_MS: [5_000, 30_000, 60_000],
+  // Bounded queue, drops oldest — mirrors MAX_LOGS_PER_RUN in
+  // automation-logger.ts. A dead collector cannot grow memory without limit.
+  TELEMETRY_MAX_QUEUE: 1_000,
+  TELEMETRY_BATCH_SIZE: 200,
+  TELEMETRY_EXPORT_TIMEOUT_MS: 5_000,
+  // A resume-review prompt runs 10-50 KB; this caps what leaves the process.
+  // Not the same thing as jobsync.input.truncated — see spec section 8.
+  TELEMETRY_MAX_ATTR_CHARS: 32_000,
 
   // File uploads
   UPLOADS_DIR: process.env.NODE_ENV !== "production" ? "data" : "/data",

@@ -1,15 +1,13 @@
 "use server";
 import prisma from "@/lib/db";
 import { handleError } from "@/lib/utils";
-import { getCurrentUser } from "@/utils/user.utils";
+import { requireUser } from "./shared";
 import { APP_CONSTANTS } from "@/lib/constants";
+import { getReferenceEntityList } from "./referenceList";
 
 export const getAllJobLocations = async (): Promise<any | undefined> => {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
+    const user = await requireUser();
     const list = await prisma.location.findMany({
       where: {
         createdBy: user.id,
@@ -25,80 +23,22 @@ export const getAllJobLocations = async (): Promise<any | undefined> => {
 export const getJobLocationsList = async (
   page: number = 1,
   limit: number = APP_CONSTANTS.RECORDS_PER_PAGE,
-  countBy?: string
+  countBy?: string,
+  search?: string,
 ): Promise<any | undefined> => {
   try {
-    const user = await getCurrentUser();
+    const user = await requireUser();
 
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-    const skip = (page - 1) * limit;
-
-    const [data, total, totalCounts] = await Promise.all([
-      prisma.location.findMany({
-        where: {
-          createdBy: user.id,
-        },
-        skip,
-        take: limit,
-        ...(countBy
-          ? {
-              select: {
-                id: true,
-                label: true,
-                value: true,
-                _count: {
-                  select: {
-                    jobsApplied: {
-                      where: {
-                        applied: true,
-                      },
-                    },
-                  },
-                },
-              },
-            }
-          : {}),
-        orderBy: {
-          jobsApplied: {
-            _count: "desc",
-          },
-        },
-      }),
-      prisma.location.count({
-        where: {
-          createdBy: user.id,
-        },
-      }),
-      countBy
-        ? prisma.job.groupBy({
-            by: ["locationId"],
-            where: {
-              userId: user.id,
-            },
-            _count: { id: true },
-          })
-        : Promise.resolve([]),
-    ]);
-
-    const totalMap = new Map(
-      (totalCounts as { locationId: string; _count: { id: number } }[]).map(
-        (r) => [r.locationId, r._count.id],
-      ),
-    );
-
-    const dataWithTotal = countBy
-      ? (data as any[]).map((location) => ({
-          ...location,
-          _count: {
-            ...(location._count ?? {}),
-            jobsTotal: totalMap.get(location.id) ?? 0,
-          },
-        }))
-      : data;
-
-    return { data: dataWithTotal, total };
+    return await getReferenceEntityList({
+      model: prisma.location,
+      userId: user.id,
+      fkField: "locationId",
+      appliedRelation: "jobsApplied",
+      page,
+      limit,
+      countBy,
+      search,
+    });
   } catch (error) {
     const msg = "Failed to fetch job location list. ";
     return handleError(error, msg);
@@ -109,11 +49,7 @@ export const deleteJobLocationById = async (
   locationId: string
 ): Promise<any | undefined> => {
   try {
-    const user = await getCurrentUser();
-
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
+    const user = await requireUser();
 
     const experiences = await prisma.workExperience.count({
       where: {
