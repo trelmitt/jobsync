@@ -88,6 +88,12 @@ export const APP_CONSTANTS = {
   // local model can take minutes; too low cuts the stream mid-analysis.
   AI_JOB_MATCH_TIMEOUT_MS: 180_000,
 
+  // Automation match output cap. Reasoning models (e.g. Qwen3) write their
+  // thinking before the scored answer; left unset, a provider's own default
+  // (seen as low as 8192 against macengine) can be exhausted by reasoning
+  // alone, so the SCORES line never gets written and matching fails.
+  AI_AUTOMATION_MATCH_MAX_OUTPUT_TOKENS: 32_768,
+
   // Cover letter generation timeout. Shorter than match/review because the
   // output is a single 250-400 word letter, not a multi-section analysis.
   AI_COVER_LETTER_TIMEOUT_MS: 120_000,

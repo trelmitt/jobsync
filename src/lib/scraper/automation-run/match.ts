@@ -84,6 +84,7 @@ ${removeHtmlTags(job.description)}
           system: AUTOMATION_JOB_MATCH_SYSTEM_PROMPT,
           prompt: promptText,
           temperature: 0.3,
+          maxOutputTokens: APP_CONSTANTS.AI_AUTOMATION_MATCH_MAX_OUTPUT_TOKENS,
           abortSignal: signal,
         });
         span.setAttrs(
@@ -142,6 +143,7 @@ ${removeHtmlTags(job.description)}
             system: OPPORTUNITY_FIT_SYSTEM_PROMPT,
             prompt: opportunityPrompt,
             temperature: 0.3,
+            maxOutputTokens: APP_CONSTANTS.AI_AUTOMATION_MATCH_MAX_OUTPUT_TOKENS,
             abortSignal: signal,
           });
           span.setAttrs(
