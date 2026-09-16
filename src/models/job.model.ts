@@ -95,6 +95,7 @@ export interface Company {
     jobsApplied: number;
     jobsRejected?: number;
     jobsTotal?: number;
+    contacts?: number;
   };
 }
 

@@ -27,6 +27,9 @@ vi.mock("@prisma/client", () => {
     workExperience: {
       count: vi.fn(),
     },
+    contact: {
+      count: vi.fn(),
+    },
     job: {
       count: vi.fn(),
       groupBy: vi.fn(),
@@ -137,6 +140,11 @@ describe("Company Actions", () => {
               jobsApplied: {
                 where: {
                   applied: true,
+                },
+              },
+              contacts: {
+                where: {
+                  createdBy: mockUser.id,
                 },
               },
             },
@@ -250,6 +258,11 @@ describe("Company Actions", () => {
               jobsApplied: {
                 where: {
                   applied: true,
+                },
+              },
+              contacts: {
+                where: {
+                  createdBy: mockUser.id,
                 },
               },
             },
@@ -378,6 +391,52 @@ describe("Company Actions", () => {
         },
       });
       expect(revalidatePath).toHaveBeenCalledWith("/dashboard/myjobs", "page");
+    });
+
+    it("persists the three company attributes", async () => {
+      (getCurrentUser as any).mockResolvedValue(mockUser);
+      (prisma.company.findFirst as any).mockResolvedValue(null);
+      (prisma.company.create as any).mockResolvedValue({ id: "c1" });
+
+      await addCompany({
+        company: "Acme",
+        websiteUrl: "https://acme.example.com",
+        careersUrl: "https://acme.example.com/careers",
+        industry: "Widgets",
+      } as any);
+
+      expect(prisma.company.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          websiteUrl: "https://acme.example.com",
+          careersUrl: "https://acme.example.com/careers",
+          industry: "Widgets",
+        }),
+      });
+    });
+
+    it("rejects a site-relative website URL", async () => {
+      (getCurrentUser as any).mockResolvedValue(mockUser);
+
+      const res = await addCompany({
+        company: "Acme",
+        websiteUrl: "/careers",
+      } as any);
+
+      expect(res.success).toBe(false);
+      expect(prisma.company.create).not.toHaveBeenCalled();
+    });
+
+    it("still accepts a site-relative logo URL", async () => {
+      (getCurrentUser as any).mockResolvedValue(mockUser);
+      (prisma.company.findFirst as any).mockResolvedValue(null);
+      (prisma.company.create as any).mockResolvedValue({ id: "c1" });
+
+      const res = await addCompany({
+        company: "Acme",
+        logoUrl: "/icons/logo.svg",
+      } as any);
+
+      expect(res.success).toBe(true);
     });
 
     it("should return an error if the user is not authenticated", async () => {
@@ -822,6 +881,10 @@ describe("Company Actions", () => {
   });
 
   describe("deleteCompanyById", () => {
+    beforeEach(() => {
+      (prisma.contact.count as any).mockResolvedValue(0);
+    });
+
     it("should delete a company successfully", async () => {
       (getCurrentUser as any).mockResolvedValue(mockUser);
       (prisma.workExperience.count as any).mockResolvedValue(0);
@@ -834,6 +897,25 @@ describe("Company Actions", () => {
       expect(result).toEqual({ res: mockDeleted, success: true });
       expect(prisma.company.delete).toHaveBeenCalledWith({
         where: { id: "company-id", createdBy: mockUser.id },
+      });
+    });
+
+    it("counts only the current user's work experience rows", async () => {
+      (getCurrentUser as any).mockResolvedValue(mockUser);
+      (prisma.workExperience.count as any).mockResolvedValue(0);
+      (prisma.job.count as any).mockResolvedValue(0);
+      (prisma.company.delete as any).mockResolvedValue({ id: "c1" });
+
+      await deleteCompanyById("c1");
+
+      expect(prisma.workExperience.count).toHaveBeenCalledWith({
+        where: {
+          companyId: "c1",
+          OR: [
+            { ResumeSection: { Resume: { profile: { userId: mockUser.id } } } },
+            { resumeSectionId: null },
+          ],
+        },
       });
     });
 
@@ -873,6 +955,25 @@ describe("Company Actions", () => {
         message:
           "Company cannot be deleted due to 3 number of associated jobs! ",
       });
+      expect(prisma.company.delete).not.toHaveBeenCalled();
+    });
+
+    it("refuses to delete a company that a contact points at, either way", async () => {
+      (getCurrentUser as any).mockResolvedValue(mockUser);
+      (prisma.workExperience.count as any).mockResolvedValue(0);
+      (prisma.job.count as any).mockResolvedValue(0);
+      (prisma.contact.count as any).mockResolvedValue(2);
+
+      const result = await deleteCompanyById("co1");
+
+      expect(prisma.contact.count).toHaveBeenCalledWith({
+        where: {
+          createdBy: mockUser.id,
+          OR: [{ companyId: "co1" }, { workedAtCompanyId: "co1" }],
+        },
+      });
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("2");
       expect(prisma.company.delete).not.toHaveBeenCalled();
     });
 

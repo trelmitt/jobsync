@@ -4,6 +4,7 @@ import { handleError } from "@/lib/utils";
 import { JOB_TYPES } from "@/models/job.model";
 import { APP_CONSTANTS } from "@/lib/constants";
 import { requireUser } from "../shared";
+import { hideUnanalyzedScore } from "./shared";
 
 const JOB_LIST_SELECT = {
   id: true,
