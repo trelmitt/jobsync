@@ -1,161 +1,159 @@
 import {
-  getContactsByJobId,
-  addContact,
+  getContactList,
+  getAllContacts,
+  createContact,
+  updateContact,
+  deleteContactById,
   touchContact,
-  deleteContact,
 } from "@/actions/contact.actions";
 import { getCurrentUser } from "@/utils/user.utils";
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/lib/db";
 
-const prisma = new PrismaClient();
-
-vi.mock("@prisma/client", () => {
-  const mPrismaClient = {
+vi.mock("@/lib/db", () => ({
+  default: {
     contact: {
       findMany: vi.fn(),
+      count: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
-      delete: vi.fn(),
+      updateMany: vi.fn(),
+      deleteMany: vi.fn(),
     },
-    job: {
-      findFirst: vi.fn(),
-    },
-  };
-  return { PrismaClient: vi.fn(function() { return mPrismaClient; }) };
-});
-
-vi.mock("@/utils/user.utils", () => ({
-  getCurrentUser: vi.fn(),
+  },
 }));
 
-describe("contactActions", () => {
-  const mockUser = { id: "user-id" };
-  const now = new Date();
-  const mockContact = {
-    id: "contact-id",
-    jobId: "job-id",
-    createdBy: mockUser.id,
-    name: "Jamie Recruiter",
-    email: "jamie@example.com",
-    createdAt: now,
-    lastTouchedAt: now,
-  };
+vi.mock("@/utils/user.utils", () => ({ getCurrentUser: vi.fn() }));
 
+const db = prisma as any;
+const user = { id: "user-1" };
+
+describe("contact actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (getCurrentUser as any).mockResolvedValue(user);
+    db.contact.findMany.mockResolvedValue([]);
+    db.contact.count.mockResolvedValue(0);
   });
 
-  describe("getContactsByJobId", () => {
-    it("should return contacts newest-first", async () => {
-      (getCurrentUser as any).mockResolvedValue(mockUser);
-      (prisma.job.findFirst as any).mockResolvedValue({ id: "job-id" });
-      (prisma.contact.findMany as any).mockResolvedValue([mockContact]);
-
-      const result = await getContactsByJobId("job-id");
-
-      expect(result).toEqual({ success: true, data: [mockContact] });
-      expect(prisma.contact.findMany).toHaveBeenCalledWith({
-        where: { jobId: "job-id", createdBy: mockUser.id },
-        orderBy: { createdAt: "desc" },
+  describe("getContactList", () => {
+    it("scopes to the user", async () => {
+      await getContactList();
+      expect(db.contact.findMany.mock.calls[0][0].where).toEqual({
+        createdBy: user.id,
       });
     });
 
-    it("should return error when job is not found", async () => {
-      (getCurrentUser as any).mockResolvedValue(mockUser);
-      (prisma.job.findFirst as any).mockResolvedValue(null);
-
-      const result = await getContactsByJobId("non-existent-job");
-
-      expect(result).toEqual({ success: false, message: "Job not found" });
+    it("searches name, email and title", async () => {
+      await getContactList(1, 10, "pat");
+      expect(db.contact.findMany.mock.calls[0][0].where.OR).toEqual([
+        { name: { contains: "pat" } },
+        { email: { contains: "pat" } },
+        { title: { contains: "pat" } },
+      ]);
     });
 
-    it("should return error when user is not authenticated", async () => {
-      (getCurrentUser as any).mockResolvedValue(null);
+    it("filters on the standing role or one held through any job link", async () => {
+      await getContactList(1, 10, undefined, "role-1");
+      expect(db.contact.findMany.mock.calls[0][0].where.AND).toEqual([
+        {
+          OR: [
+            { roleId: "role-1" },
+            { jobLinks: { some: { roleId: "role-1" } } },
+          ],
+        },
+      ]);
+    });
 
-      const result = await getContactsByJobId("job-id");
-
-      expect(result).toEqual({ success: false, message: "Not authenticated" });
+    it("pages with skip and take", async () => {
+      await getContactList(3, 10);
+      const args = db.contact.findMany.mock.calls[0][0];
+      expect(args.skip).toBe(20);
+      expect(args.take).toBe(10);
     });
   });
 
-  describe("addContact", () => {
-    const contactData = {
-      jobId: "job-id",
-      name: "Jamie Recruiter",
-      email: "jamie@example.com",
-    };
+  describe("getAllContacts", () => {
+    it("returns picker rows whose value carries the email, so search finds it", async () => {
+      db.contact.findMany.mockResolvedValue([
+        { id: "c1", name: "Dave Patel", email: "dave@x.com", Company: { label: "Shopify" } },
+      ]);
 
-    it("should create a contact successfully", async () => {
-      (getCurrentUser as any).mockResolvedValue(mockUser);
-      (prisma.job.findFirst as any).mockResolvedValue({ id: "job-id" });
-      (prisma.contact.create as any).mockResolvedValue(mockContact);
+      const res = await getAllContacts();
 
-      const result = await addContact(contactData);
+      expect(res).toEqual([
+        { id: "c1", label: "Dave Patel", value: "dave patel dave@x.com shopify" },
+      ]);
+    });
+  });
 
-      expect(result).toEqual({ success: true, data: mockContact });
-      expect(prisma.contact.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          jobId: "job-id",
-          createdBy: mockUser.id,
-          name: "Jamie Recruiter",
-          email: "jamie@example.com",
-        }),
+  describe("createContact", () => {
+    it("writes createdBy from the session, never from the payload", async () => {
+      db.contact.create.mockResolvedValue({ id: "c1" });
+
+      await createContact({ name: "Dave", createdBy: "attacker" } as any);
+
+      const data = db.contact.create.mock.calls[0][0].data;
+      expect(data.createdBy).toBe(user.id);
+      expect(data.name).toBe("Dave");
+    });
+
+    it("stores empty optional text as null rather than an empty string", async () => {
+      db.contact.create.mockResolvedValue({ id: "c1" });
+
+      await createContact({ name: "Dave", email: "", title: "", company: "" } as any);
+
+      const data = db.contact.create.mock.calls[0][0].data;
+      expect(data.email).toBeNull();
+      expect(data.title).toBeNull();
+      expect(data.companyId).toBeNull();
+    });
+  });
+
+  describe("updateContact", () => {
+    it("scopes the update to the owner and reports a miss", async () => {
+      db.contact.updateMany.mockResolvedValue({ count: 0 });
+
+      const res = await updateContact({ id: "c1", name: "Dave" } as any);
+
+      expect(db.contact.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "c1", createdBy: user.id } }),
+      );
+      expect(res.success).toBe(false);
+    });
+  });
+
+  describe("deleteContactById", () => {
+    it("deletes only the caller's contact", async () => {
+      db.contact.deleteMany.mockResolvedValue({ count: 1 });
+
+      const res = await deleteContactById("c1");
+
+      expect(db.contact.deleteMany).toHaveBeenCalledWith({
+        where: { id: "c1", createdBy: user.id },
       });
+      expect(res.success).toBe(true);
     });
 
-    it("should reject an invalid email", async () => {
-      (getCurrentUser as any).mockResolvedValue(mockUser);
-
-      const result = await addContact({ ...contactData, email: "not-an-email" });
-
-      expect(result.success).toBe(false);
-      expect(prisma.contact.create).not.toHaveBeenCalled();
-    });
-
-    it("should return error when job is not found", async () => {
-      (getCurrentUser as any).mockResolvedValue(mockUser);
-      (prisma.job.findFirst as any).mockResolvedValue(null);
-
-      const result = await addContact(contactData);
-
-      expect(result).toEqual({ success: false, message: "Job not found" });
+    it("reports a delete that matched nothing rather than claiming success", async () => {
+      db.contact.deleteMany.mockResolvedValue({ count: 0 });
+      const res = await deleteContactById("someone-elses");
+      expect(res.success).toBe(false);
     });
   });
 
   describe("touchContact", () => {
-    it("should bump lastTouchedAt", async () => {
-      (getCurrentUser as any).mockResolvedValue(mockUser);
-      (prisma.contact.update as any).mockResolvedValue(mockContact);
+    it("bumps lastTouchedAt, scoped to the owner", async () => {
+      const now = new Date();
+      db.contact.update.mockResolvedValue({ id: "c1", lastTouchedAt: now });
 
-      const result = await touchContact("contact-id");
+      const res = await touchContact("c1");
 
-      expect(result).toEqual({ success: true, data: mockContact });
-      expect(prisma.contact.update).toHaveBeenCalledWith({
-        where: { id: "contact-id", createdBy: mockUser.id },
+      expect(db.contact.update).toHaveBeenCalledWith({
+        where: { id: "c1", createdBy: user.id },
         data: { lastTouchedAt: expect.any(Date) },
       });
-    });
-
-    it("should return error when user is not authenticated", async () => {
-      (getCurrentUser as any).mockResolvedValue(null);
-
-      const result = await touchContact("contact-id");
-
-      expect(result).toEqual({ success: false, message: "Not authenticated" });
-    });
-  });
-
-  describe("deleteContact", () => {
-    it("should delete a contact successfully", async () => {
-      (getCurrentUser as any).mockResolvedValue(mockUser);
-      (prisma.contact.delete as any).mockResolvedValue(mockContact);
-
-      const result = await deleteContact("contact-id");
-
-      expect(result).toEqual({ success: true });
-      expect(prisma.contact.delete).toHaveBeenCalledWith({
-        where: { id: "contact-id", createdBy: mockUser.id },
-      });
+      expect(res.success).toBe(true);
     });
   });
 });

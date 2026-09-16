@@ -1,5 +1,6 @@
 import type { JobBoard, LeverHost } from "@/models/automation.model";
 import { CoverLetter, Resume } from "./profile.model";
+import type { JobContactLink } from "./contact.model";
 
 export interface JobForm {
   id?: string;
@@ -56,6 +57,7 @@ export interface JobResponse {
   matchScore?: number | null;
   matchData?: string | null;
   tags?: Tag[];
+  contactLinks?: JobContactLink[];
   createdVia?: string | null;
   discoveryStatus?: string | null;
   descriptionCompleteness?: DescriptionCompleteness | null;
@@ -168,6 +170,14 @@ export function getWorkplaceTypeLabel(
 ): string {
   if (!code) return fallback;
   return (WORKPLACE_TYPES as Record<string, string>)[code] ?? fallback;
+}
+
+export function getJobTypeLabel(
+  code?: string | null,
+  fallback: string = "Not specified",
+): string {
+  if (!code) return fallback;
+  return (JOB_TYPES as Record<string, string>)[code] ?? fallback;
 }
 
 export type DescriptionCompleteness = "title-only" | "partial" | "full";

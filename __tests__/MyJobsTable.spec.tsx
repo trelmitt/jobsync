@@ -8,6 +8,11 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
+const chat = { busy: false };
+vi.mock("@/components/agent/AgentChatProvider", () => ({
+  useAgentChat: () => chat,
+}));
+
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 window.HTMLElement.prototype.hasPointerCapture = vi.fn();
 window.HTMLElement.prototype.releasePointerCapture = vi.fn();
@@ -97,7 +102,7 @@ describe("MyJobsTable", () => {
     expect(screen.getByText("Applied")).toBeInTheDocument();
   });
 
-  it("renders a match score when present, and a dash otherwise", () => {
+  it("renders a match score when present, and a Match button otherwise", () => {
     const { rerender } = renderTable([makeJob({ matchScore: 87 })]);
     expect(screen.getByText("87%")).toBeInTheDocument();
 
@@ -111,7 +116,23 @@ describe("MyJobsTable", () => {
         onAddNote={vi.fn()}
       />,
     );
-    expect(screen.getByText("-")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /match/i })).toHaveAttribute(
+      "href",
+      "/dashboard/myjobs/job-1?tab=match&match=1",
+    );
+  });
+
+  it("disables the Match button while the assistant is busy", () => {
+    chat.busy = true;
+    try {
+      renderTable([makeJob({ matchScore: null })]);
+      expect(
+        screen.queryByRole("link", { name: /match/i }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /match/i })).toBeDisabled();
+    } finally {
+      chat.busy = false;
+    }
   });
 
   it("shows a notes count badge only when the job has notes", () => {
@@ -212,6 +233,50 @@ describe("MyJobsTable", () => {
         label: "Interview",
         value: "interview",
       });
+    });
+  });
+
+  describe("status badge menu", () => {
+    const user = userEvent.setup();
+
+    it("opens a status menu when the badge is clicked", async () => {
+      renderTable([makeJob()]);
+
+      await user.click(
+        screen.getByRole("button", { name: "Change status, currently Applied" }),
+      );
+
+      expect(await screen.findByText("Interview")).toBeInTheDocument();
+    });
+
+    it("calls onChangeJobStatus with the job id and selected status", async () => {
+      const { onChangeJobStatus } = renderTable([makeJob()]);
+
+      await user.click(
+        screen.getByRole("button", { name: "Change status, currently Applied" }),
+      );
+      await user.click(await screen.findByText("Interview"));
+
+      expect(onChangeJobStatus).toHaveBeenCalledWith("job-1", {
+        id: "2",
+        label: "Interview",
+        value: "interview",
+      });
+    });
+
+    it("checks and disables the current status", async () => {
+      renderTable([makeJob()]);
+
+      await user.click(
+        screen.getByRole("button", { name: "Change status, currently Applied" }),
+      );
+
+      const appliedOption = (await screen.findAllByText("Applied")).find((el) =>
+        el.closest('[role="menuitem"]'),
+      );
+      expect(appliedOption?.closest('[role="menuitem"]')).toHaveAttribute(
+        "data-disabled",
+      );
     });
   });
 });
