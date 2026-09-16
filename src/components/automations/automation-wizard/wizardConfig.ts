@@ -12,7 +12,7 @@ export const EMPTY_ATS: AtsConfigValue = {
   strictLocation: false,
   // Analyze every relevant listing by default — local AI matching is fast and
   // free, so there's no cost reason to leave most listings unanalyzed.
-  topK: APP_CONSTANTS.GREENHOUSE_LISTING_CAP,
+  topK: APP_CONSTANTS.ATS_LISTING_CAP,
   saveUnanalyzed: true,
 };
 

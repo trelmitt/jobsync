@@ -55,7 +55,7 @@ export function StepReview({
       <div className="flex justify-between gap-4">
         <span className="text-muted-foreground">Jobs analyzed per run</span>
         <span className="font-medium text-right">
-          {atsConfig.topK ?? APP_CONSTANTS.GREENHOUSE_LISTING_CAP}
+          {atsConfig.topK ?? APP_CONSTANTS.ATS_LISTING_CAP}
         </span>
       </div>
       <div className="flex justify-between gap-4">
