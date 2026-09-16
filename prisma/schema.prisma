@@ -398,7 +398,6 @@ model Job {
   Location    Location?   @relation(fields: [locationId], references: [id])
   locationId  String?
   Interview   Interview[]
-  Contacts      Contact[]
   Resume        Resume?      @relation(fields: [resumeId], references: [id])
   resumeId      String?
   CoverLetter   CoverLetter? @relation(fields: [coverLetterId], references: [id])
