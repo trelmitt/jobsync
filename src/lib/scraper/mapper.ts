@@ -7,10 +7,11 @@ import {
   resolveLocation,
   resolveJobSource,
 } from "@/lib/jobs/resolve";
+import { matchSkillTags, type SkillTerm } from "./automation-run/skillTags";
 
-// Maps source employment-type strings (JSearch's "FULLTIME"/"CONTRACTOR",
-// Greenhouse's absence of the field, etc.) to JOB_TYPES enum keys. Defaults
-// to full-time when the source doesn't expose employment type at all.
+// Maps source employment-type strings ("FULLTIME"/"CONTRACTOR", Greenhouse's
+// absence of the field, etc.) to JOB_TYPES enum keys. Defaults to full-time
+// when the source doesn't expose employment type at all.
 const JOB_TYPE_ALIASES: Record<string, string> = {
   fulltime: "FT",
   parttime: "PT",
@@ -38,6 +39,7 @@ interface MapperInput {
   matchScore: number;
   matchData: string;
   discoveryStatus?: DiscoveryStatus;
+  skillTerms: SkillTerm[];
 }
 
 interface MapperOutput {
@@ -58,6 +60,7 @@ interface MapperOutput {
   matchData: string;
   discoveryStatus: DiscoveryStatus;
   discoveredAt: Date;
+  tags?: { connect: Array<{ id: string }> };
 }
 
 export async function mapScrapedJobToJobRecord(
@@ -70,6 +73,7 @@ export async function mapScrapedJobToJobRecord(
     matchScore,
     matchData,
     discoveryStatus = "new",
+    skillTerms,
   } = input;
 
   // Shares the same resolve-or-create helpers (and canonical match key) as the
@@ -86,6 +90,14 @@ export async function mapScrapedJobToJobRecord(
     resolveJobSource(capitalize(scrapedJob.sourceBoard), userId),
   ]);
   const statusId = await getDefaultJobStatus();
+
+  // Connects tags that already exist (every resume skill is a Tag row) — an
+  // unattended run must never create one, or it pollutes the shared picker.
+  const tagIds = matchSkillTags(
+    scrapedJob.title,
+    scrapedJob.description,
+    skillTerms,
+  );
 
   return {
     userId,
@@ -106,6 +118,9 @@ export async function mapScrapedJobToJobRecord(
     matchData,
     discoveryStatus,
     discoveredAt: new Date(),
+    ...(tagIds.length > 0
+      ? { tags: { connect: tagIds.map((id) => ({ id })) } }
+      : {}),
   };
 }
 

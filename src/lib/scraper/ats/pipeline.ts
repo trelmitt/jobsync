@@ -24,20 +24,22 @@ export interface PipelineResult {
   funnel: {
     deduped: number; // jobs handed in (already deduped by the runner)
     located: number | null; // survivors after strict location gate (null if off)
-    relevant: number; // floor survivors after the cap ceiling (== total saved)
+    floorSurvivors: number; // jobs clearing the floor, before the cap ceiling
+    scoreCut: number; // floor survivors dropped by the minimum-score gate
+    relevant: number; // survivors after the score gate and cap (the LLM budget)
   };
 }
 
 // Pure funnel: optional strict-location gate -> score -> relevance floor ->
 // cap ceiling -> top-K split. No I/O, no LLM; unit-testable in isolation.
-export function runGreenhousePipeline(
+export function runAtsPipeline(
   fetchedJobs: JobDetails[],
   config: PipelineConfig,
   resumeSkills: string[],
   options?: { k?: number; cap?: number; corpus?: JobDetails[] },
 ): PipelineResult {
   const k = options?.k ?? APP_CONSTANTS.MAX_JOBS_PER_RUN;
-  const cap = options?.cap ?? APP_CONSTANTS.GREENHOUSE_LISTING_CAP;
+  const cap = options?.cap ?? APP_CONSTANTS.ATS_LISTING_CAP;
 
   const deduped = fetchedJobs.length;
 
@@ -70,7 +72,17 @@ export function runGreenhousePipeline(
     .filter((s) => passesFloor(s.components))
     .sort((a, b) => b.score - a.score);
 
-  const capped = floorSurvivors.slice(0, cap);
+  // Term presence is not enough to be worth an LLM call — a single generic hit
+  // clears the floor. Cut the weak tail by weighted score too. Fails open: idf
+  // is corpus-relative, so a board where every job shares the user's terms
+  // scores everything near zero, and dropping that whole run would be worse
+  // than analyzing it.
+  const strong = floorSurvivors.filter(
+    (s) => s.score >= APP_CONSTANTS.ATS_MIN_PRERANK_SCORE,
+  );
+  const ranked = strong.length > 0 ? strong : floorSurvivors;
+
+  const capped = ranked.slice(0, cap);
 
   return {
     toAnalyze: capped.slice(0, k),
@@ -78,6 +90,8 @@ export function runGreenhousePipeline(
     funnel: {
       deduped,
       located: located ? located.length : null,
+      floorSurvivors: floorSurvivors.length,
+      scoreCut: floorSurvivors.length - ranked.length,
       relevant: capped.length,
     },
   };

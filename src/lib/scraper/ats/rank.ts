@@ -63,13 +63,11 @@ export function buildIdf(corpus: JobDetails[]): (term: string) => number {
 
 // Empty preference = no constraint (gate passes all). "Remote" is not special:
 // it only matches when the user explicitly lists it as a wanted location.
+// Whole-term, so "US" does not match "aUStralia" / "Belarus" / "Houston".
 export function locationMatches(jobLocation: string, wanted: string[]): boolean {
   const loc = (jobLocation || "").toLowerCase();
   if (!wanted || wanted.length === 0) return true;
-  return wanted.some((w) => {
-    const ww = w.trim().toLowerCase();
-    return ww.length > 0 && loc.includes(ww);
-  });
+  return wanted.some((w) => termInText(loc, w));
 }
 
 function recencyTiebreak(postedDate?: string): number {
@@ -126,8 +124,8 @@ export function scoreJob(
         : 0;
 
   const score =
-    APP_CONSTANTS.GREENHOUSE_TITLE_WEIGHT * titleScore +
-    APP_CONSTANTS.GREENHOUSE_SKILL_WEIGHT * keywordScore +
+    APP_CONSTANTS.ATS_TITLE_WEIGHT * titleScore +
+    APP_CONSTANTS.ATS_SKILL_WEIGHT * keywordScore +
     recencyTiebreak(job.postedDate);
 
   return {
@@ -142,13 +140,15 @@ export function scoreJob(
   };
 }
 
-// The relevance floor. Keep a job iff it has real signal:
-//   >=1 target-title token match OR >=2 distinct keyword/skill hits.
+// The minimum-signal floor. Keep a job iff it hit at least one of the user's
+// terms: a target-title token, or a keyword/resume-skill. Ranking (sort + cap +
+// top-K) picks the winners; this only keeps jobs with no relationship at all to
+// the search out of the LLM budget.
 // Tests presence (the component arrays), not the weighted magnitude, so it is
 // invariant to weight tuning.
 export function passesFloor(c: PrerankComponents): boolean {
   return (
-    c.titleHits.length >= APP_CONSTANTS.GREENHOUSE_FLOOR_MIN_TITLE_HITS ||
-    c.keywordHits.length >= APP_CONSTANTS.GREENHOUSE_FLOOR_MIN_KEYWORD_HITS
+    c.titleHits.length >= APP_CONSTANTS.ATS_FLOOR_MIN_TITLE_HITS ||
+    c.keywordHits.length >= APP_CONSTANTS.ATS_FLOOR_MIN_KEYWORD_HITS
   );
 }
