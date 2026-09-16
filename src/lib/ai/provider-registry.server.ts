@@ -19,9 +19,11 @@ export const PROVIDER_FACTORIES: Record<
     createOllama({ baseURL: baseURL + "/api" })(model),
   gemini: (apiKey, model) => createGoogleGenerativeAI({ apiKey })(model),
   anthropic: (apiKey, model) => createAnthropic({ apiKey })(model),
-  // macengine speaks the OpenAI dialect and is token-free on /v1/*.
+  // macengine speaks the OpenAI Chat Completions dialect on /v1/*, not the
+  // newer Responses API @ai-sdk/openai defaults a bare call to — .chat()
+  // pins it to /v1/chat/completions, which is what macengine implements.
   macengine: (baseURL, model) =>
-    createOpenAI({ baseURL: baseURL + "/v1", apiKey: "macengine" })(model),
+    createOpenAI({ baseURL: baseURL + "/v1", apiKey: "macengine" }).chat(model),
 };
 
 export const PROVIDER_VERIFIERS: Record<
