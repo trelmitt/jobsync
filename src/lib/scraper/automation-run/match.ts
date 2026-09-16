@@ -2,13 +2,16 @@ import { generateText } from "ai";
 import {
   getModel,
   parseJobMatch,
+  parseJobFacts,
   AUTOMATION_JOB_MATCH_SYSTEM_PROMPT,
   buildAutomationJobMatchPrompt,
+  OPPORTUNITY_FIT_SYSTEM_PROMPT,
+  buildOpportunityFitPrompt,
   removeHtmlTags,
 } from "@/lib/ai";
 import { APP_CONSTANTS } from "@/lib/constants";
 import type { JobBoard } from "@/models/automation.model";
-import type { AiSettings } from "@/models/userSettings.model";
+import type { AiSettings, JobPreferences } from "@/models/userSettings.model";
 import {
   genAiRequestAttrs,
   genAiResponseAttrs,
@@ -36,6 +39,7 @@ export async function matchJobToResume(
   aiSettings: AiSettings,
   userId: string,
   signal?: AbortSignal,
+  jobPreferences?: JobPreferences,
 ): Promise<MatchResult> {
   try {
     const resumeText = await convertResumeForMatch(resume);
@@ -93,20 +97,100 @@ ${removeHtmlTags(job.description)}
       },
     );
 
-    const { scores, body } = parseJobMatch(result.text);
+    const { scores, body: rawBody } = parseJobMatch(result.text);
     if (!scores) {
       return { success: false, score: 0, error: "No match data returned" };
     }
+    const { facts, body } = parseJobFacts(rawBody);
 
-    return {
-      success: true,
-      score: scores.matchScore,
-      data: {
-        matchScore: scores.matchScore,
-        recommendation: scores.recommendation,
-        body,
-      },
-    };
+    const skillScore = scores.matchScore;
+    const opportunityProfile = jobPreferences?.opportunityProfile?.trim();
+    const opportunityWeight = jobPreferences?.opportunityWeight ?? 0;
+
+    // Opportunity fit is an optional second opinion (candidate priorities like
+    // company stage/AI focus/equity, not skills). Skip the extra LLM call
+    // entirely when the candidate hasn't opted in — zero cost/behavior change
+    // for anyone who leaves the preference blank.
+    if (!opportunityProfile || opportunityWeight <= 0) {
+      return {
+        success: true,
+        score: skillScore,
+        data: { matchScore: skillScore, recommendation: scores.recommendation, body, facts },
+      };
+    }
+
+    try {
+      const opportunityPrompt = buildOpportunityFitPrompt(jobText, opportunityProfile);
+      const opportunityResult = await withSpan(
+        "scraper.match.opportunity",
+        {
+          ...genAiRequestAttrs({
+            provider,
+            model: modelName,
+            temperature: 0.3,
+            numCtx: APP_CONSTANTS.AI_OLLAMA_NUM_CTX,
+            surface: SURFACES.AUTOMATION_MATCH,
+            system: OPPORTUNITY_FIT_SYSTEM_PROMPT,
+            prompt: opportunityPrompt,
+          }),
+          "jobsync.job_board": sourceBoard,
+          "jobsync.user_id": userId,
+        },
+        async (span) => {
+          const generated = await generateText({
+            model,
+            system: OPPORTUNITY_FIT_SYSTEM_PROMPT,
+            prompt: opportunityPrompt,
+            temperature: 0.3,
+            abortSignal: signal,
+          });
+          span.setAttrs(
+            genAiResponseAttrs({
+              usage: generated.totalUsage,
+              finishReason: generated.finishReason,
+              text: generated.text,
+            }),
+          );
+          return generated;
+        },
+      );
+      const parsedOpportunity = parseJobMatch(opportunityResult.text);
+      if (!parsedOpportunity.scores) throw new Error("No opportunity score returned");
+
+      const opportunityScore = parsedOpportunity.scores.matchScore;
+      const weight = Math.min(100, Math.max(0, opportunityWeight)) / 100;
+      const blended = Math.round(skillScore * (1 - weight) + opportunityScore * weight);
+
+      return {
+        success: true,
+        score: blended,
+        data: {
+          matchScore: blended,
+          recommendation: scores.recommendation,
+          body,
+          facts,
+          skillScore,
+          opportunityScore,
+          opportunityRecommendation: parsedOpportunity.scores.recommendation,
+          opportunitySummary: parsedOpportunity.body,
+          opportunityWeight,
+        },
+      };
+    } catch (opportunityError) {
+      // The opportunity pass is an enhancement, not a requirement — fall back
+      // to the skill-only score rather than failing the whole match.
+      log.error("[Automation] Opportunity-fit matching error", {
+        error:
+          opportunityError instanceof Error
+            ? opportunityError.message
+            : String(opportunityError),
+      });
+      return {
+        success: true,
+        score: skillScore,
+        data: { matchScore: skillScore, recommendation: scores.recommendation, body, facts },
+      };
+    }
   } catch (error) {
     if (signal?.aborted || (error instanceof Error && error.name === "AbortError")) {
       return { success: false, score: 0, error: "aborted" };

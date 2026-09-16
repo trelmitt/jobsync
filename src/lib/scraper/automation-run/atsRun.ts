@@ -14,6 +14,7 @@ import {
   getAutomationMatchLimit,
   getDefaultModelForProvider,
   getUserAiSettings,
+  getUserJobPreferences,
 } from "./aiSettings";
 import { parseAtsConfig } from "./config";
 import { extractResumeSkills } from "./resumeText";
@@ -178,6 +179,7 @@ export async function runAtsRun(
     }
 
     const aiSettings = await getUserAiSettings(automation.userId);
+    const jobPreferences = await getUserJobPreferences(automation.userId);
     const modelName =
       aiSettings.model || getDefaultModelForProvider(aiSettings.provider);
     const limit = getAutomationMatchLimit(aiSettings.provider);
@@ -233,32 +235,7 @@ export async function runAtsRun(
       // after all dispatched tasks settle.
       if (signal?.aborted) return;
 
-      const saveUnanalyzed = async () => {
-        try {
-          const saved = await persistDiscoveredJob(
-            automation,
-            scored.job,
-            scalePrerank(scored.score),
-            {
-              prerankScore: scored.score,
-              prerankComponents: scored.components,
-              analyzed: false,
-            },
-          );
-          if (saved) jobsSaved++;
-        } catch (err) {
-          log.error("[ATS] Failed to save listing", {
-            "automation.id": automation.id,
-            provider: provider.label,
-            error: String(err),
-          });
-        }
-      };
-
-      if (aiError) {
-        await saveUnanalyzed();
-        return;
-      }
+      if (aiError) return;
 
       automationLogger.log(
         automation.id,
@@ -273,12 +250,10 @@ export async function runAtsRun(
         aiSettings,
         automation.userId,
         signal,
+        jobPreferences,
       );
 
-      // Abort may have fired mid-call; bail before saving this job. This
-      // check must come before the failure branch below, since an aborted
-      // match resolves as a non-ai_unavailable failure and would otherwise
-      // incorrectly saveUnanalyzed() a cancelled run's job.
+      // Abort may have fired mid-call; bail before saving this job.
       if (signal?.aborted) return;
 
       if (!matchResult.success) {
@@ -295,7 +270,6 @@ export async function runAtsRun(
             `${label} LLM match failed: ${matchResult.error}`,
           );
         }
-        await saveUnanalyzed();
         return;
       }
 
@@ -306,7 +280,7 @@ export async function runAtsRun(
       automationLogger.log(
         automation.id,
         isStrong ? "success" : "info",
-        `${label} Analyzed ${analyzed}/${totalToAnalyze}: ${scored.job.title} — ${matchResult.score}%`,
+        `${label} Analyzed ${analyzed}/${totalToAnalyze}: ${scored.job.title} — ${matchResult.score}%${isStrong ? "" : " (below threshold, dismissed)"}`,
         { score: matchResult.score, threshold: automation.matchThreshold },
       );
 
@@ -326,6 +300,7 @@ export async function runAtsRun(
             prerankComponents: scored.components,
             analyzed: true,
           },
+          isStrong ? "new" : "dismissed",
         );
         if (saved) jobsSaved++;
       } catch (err) {

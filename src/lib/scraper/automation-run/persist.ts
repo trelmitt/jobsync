@@ -1,6 +1,10 @@
 import db from "@/lib/db";
 import { APP_CONSTANTS } from "@/lib/constants";
-import type { Automation, ScrapedJobData } from "@/models/automation.model";
+import type {
+  Automation,
+  DiscoveryStatus,
+  ScrapedJobData,
+} from "@/models/automation.model";
 import type { JobDetails } from "../types";
 import { mapScrapedJobToJobRecord } from "../mapper";
 import { normalizeJobUrl } from "../utils";
@@ -27,6 +31,7 @@ export async function persistDiscoveredJob(
   job: JobDetails,
   matchScore: number,
   matchData: object,
+  discoveryStatus?: DiscoveryStatus,
 ): Promise<boolean> {
   const scrapedJob: ScrapedJobData = {
     title: job.title,
@@ -46,6 +51,7 @@ export async function persistDiscoveredJob(
     automationId: automation.id,
     matchScore,
     matchData: JSON.stringify(matchData),
+    discoveryStatus,
   });
 
   try {
