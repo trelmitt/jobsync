@@ -16,14 +16,23 @@ export const getStaleContacts = async (
         lastTouchedAt: { lt: cutoff },
       },
       include: {
-        Job: { include: { Company: true, JobTitle: true } },
+        // Contact reaches Job only through JobContact now; the dashboard card
+        // just needs one job to link to, so the most recently linked wins.
+        jobLinks: {
+          take: 1,
+          orderBy: { createdAt: "desc" },
+          include: { Job: { include: { Company: true, JobTitle: true } } },
+        },
       },
       orderBy: {
         lastTouchedAt: "asc",
       },
       take: APP_CONSTANTS.RECENT_NUM_JOBS_ACTIVITIES,
     });
-    return list;
+    return list.map(({ jobLinks, ...contact }) => ({
+      ...contact,
+      Job: jobLinks[0]?.Job ?? null,
+    }));
   } catch (error) {
     const msg = "Failed to fetch stale contacts list. ";
     console.error(msg, error);
