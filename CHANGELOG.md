@@ -1,5 +1,97 @@
 # Changelog
 
+## [1.1.20](https://github.com/Gsync/jobsync/compare/v1.1.19...v1.1.20) (2026-09-14)
+
+
+### Features
+
+* add validation for last-contacted date and update documentation
+* link company details from the Library table and job header; add the companies help page
+* add the company Contacts tab; AddContact company prefill and ContactsTable hideCompanyColumn
+* add the company details page with header, summary card and Jobs tab; extract BoardCell, make the empty-state action optional and keep query params in useTabQueryParam
+* add getCompanyDetails and share the contact include and score helper
+* hide match score for unanalyzed jobs and update related components
+* add a Companies contacts count, contact-aware delete guards and the contacts help page
+* add job-contact link actions and the job-details Contacts tab
+* add the standing contact role, the Contacts Library tab and the Add Contact form
+* add contact CRUD actions, the role-filtered list query and the contact form schema
+* add contact-role actions, the Library Roles tab and two creatable ComboBox cases
+* reshape the Contact model, add ContactRole and JobContact, and seed default roles
+* tag discovered jobs with the resume skills their posting mentions, and raise the wiki section word cap
+* add a Match button to unscored jobs, show the company logo on job details
+* add the watched-boards group and batch add to the wizard picker, plus its spec and wiki entries
+* add watchlist and board-browse scopes to the Companies tab
+* add website, careers and industry fields and scope the delete guard by owner
+* add reference-list filter/sort params and a watchlist scope to getCompanyList
+* add the watch server actions, barrel re-exports and their spec
+
+### Bug Fixes
+
+* upgrade next and eslint-config-next to 15.5.25
+* download attached resume files under their original upload name
+* confine resume file paths; move file uploads out of server actions; guard backup export/import and resume import sinks
+* check ownership of job and contact reference ids; download resume files by resume id
+* update bullet character in style sets to ensure consistency across components
+* clear end date when switching job status to current
+* always show the recent-activity start button and shrink the agent chat composer
+* gate the Match and Cover Letter actions on chat busy, and reload the jobs list when a match score lands
+* match locations on whole terms so "US" stops matching "Australia"
+* make the match threshold a save gate, add a minimum prerank score, and update the wizard copy, wiki and specs
+
+### Other Changes
+
+* update features section
+* add link to resume in JobSummaryCard component
+* add Activities and Tasks documentation
+* update backup functionality to include contact roles and references
+* update e2e tests for company management
+* add e2e tests for contacts
+* update evals package dependencies and scripts in package.json and package-lock.json
+* Add buttons to start and resume activity in BreakModal
+* lazy-load the contact dialog pickers and drop the duplicate roles fetch
+* split JobDetails into job-details/ with URL-backed tabs
+
+
+## [1.1.19](https://github.com/Gsync/jobsync/compare/v1.1.18...v1.1.19) (2026-09-06)
+
+
+### Features
+
+* seed the Ashby company directory, resolve Ashby board tokens and offer Ashby in the wizard
+* add the Ashby fetch adapter and mapper, and register Ashby across the model, schema, ATS registry and board URLs
+* remove the JSearch job board and the RapidAPI provider it powered
+* add Offer Accepted/Declined statuses and make the status badge a picker
+* make Salary Range optional free text, surface it on job details, widen the preset bands
+* cap the weekly Activities chart to top-3 + Other, matching the donut
+* add the OKF help bundle, its CI guard and GitHub wiki publishing
+* wire OTEL_* passthroughs into the Jenkins deploy path
+* trace automation runs end to end and move server logs to log.*
+* add GenAI spans at the five LLM call sites and fix float encoding
+* add log records and fan automation-logger entries out to OTLP
+* add zero-dependency OTLP span exporter and context propagation
+* log measured prompt-prefix sizes per turn
+
+### Bug Fixes
+
+* focus the search input when the ATS company and targeting pickers open
+* drop the Greenhouse keyword floor to 1, log true floor counts, relabel unset titles
+* conditionally render caution message for editing company name
+* stop the activity donut overlapping its total and flickering on panel toggle
+* keep the chip-only user turn, stop swallowing stream errors, and route chat logs to OTLP
+* change filter option label from "None" to "All (Except Dismissed)"
+
+### Other Changes
+
+* add Ashby to automated job discovery and link the help wiki
+* patch the app's fast-uri, qs, xmldom and humanfs, and bump evals' brace-expansion overrides
+* add the automations help page, link it from the index and drop Remote from the locations placeholder
+* move the shared ranking pipeline, HTML helpers and ATS_* constants out of greenhouse/, updating components and specs
+* split the detail page, wizard, ATS step, jobs list and scraper runner into modules
+* add the MCP Access help page, its index entry and an "mcp" feature
+* spike span parenting through the agent chat stream boundary
+* replace hand-rolled auth guards with requireUser() across 12 action files
+
+
 ## [1.1.18](https://github.com/Gsync/jobsync/compare/v1.1.17...v1.1.18) (2026-08-23)
 
 

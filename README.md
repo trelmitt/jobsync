@@ -6,7 +6,8 @@
   <a href="https://demo.jobsync.ca">Live Demo</a> ·
   <a href="#quick-start">Quick Start</a> ·
   <a href="#ai-assistant-in-app-chat">AI Assistant</a> ·
-  <a href="#mcp-server-ai-agent-integration">MCP Setup</a>
+  <a href="#mcp-server-ai-agent-integration">MCP Setup</a> ·
+  <a href="https://github.com/Gsync/jobsync/wiki">Help</a>
 </p>
 
 <p align="center">
@@ -31,6 +32,14 @@ JobSync is a free, open-source companion for your job search: track applications
 - **Automated Job Discovery:** Schedule automations that track companies via job board APIs, then AI-match each listing against your resume and surface the best fits for review. See [Features in Detail](#automated-job-discovery) below.
 
 - **Task & Activity Management:** Manage tasks, track activities linked with tasks including time tracking.
+
+- **Contacts:** Keep the people behind your job hunt — recruiters, hiring managers, interviewers, referrers and references — with how you know them and when you last spoke. Link a contact to any number of jobs with a role on each link, so the same recruiter can sit on three applications, and filter by role to find your references in one click.
+
+- **Company Pages:** Every company gets a details page with its jobs, the people who work there or worked with you there, and links to its website, careers page and job board. Watch a company to put it on your watchlist; watched companies with a job board appear in their own Watched group when you pick companies for an automation.
+
+- **Question Bank:** Build a library of interview questions with your answers, tagged by skill, so your preparation is in one place when the next interview comes up.
+
+- **Data Backup & Restore:** Download every job, resume, task, activity, contact and question — plus your uploaded resume files — as one zip from **Settings > Data**, and import it back on any JobSync instance. Backups never contain API keys, MCP tokens or passwords, and every import first saves a snapshot so you can undo it.
 
 - **AI Assistant:** A chat panel that stays docked beside whatever page you're on. Ask it to review a resume, score how well it matches the job you're viewing, write a tailored cover letter, or add a job straight from a posting you paste in — it asks for your confirmation before saving anything. See [Features in Detail](#ai-assistant-in-app-chat) below.
 
@@ -60,6 +69,9 @@ Environment variables can be set in `docker-compose.yml`:
 |---|---|
 | `TZ` | Your timezone (e.g. `America/Edmonton`). **Set this on remote servers** to avoid activity time shifts. |
 | `AUTH_SECRET` | Auto-generated if not set. To set manually: `openssl rand -base64 32` |
+| `ENCRYPTION_KEY` | Encrypts the API keys you save in Settings. **Set your own** (`openssl rand -base64 32`) before adding any keys, and never change it afterwards — a new value makes every stored API key unrecoverable. |
+| `NEXTAUTH_URL` | The address you open JobSync at. Defaults to `http://localhost:3737`; on a homelab server, use the server's IP or hostname. |
+| `MCP_ENABLED` | Set to `false` to turn off the [MCP server](#mcp-server-ai-agent-integration). Enabled by default in `docker-compose.yml`. |
 
 ### Updating
 
@@ -98,7 +110,6 @@ The assistant is deliberately narrow about what it can see: it reads your resume
 
 Pick a model under **Settings > AI Settings** before using the panel — it needs one that supports tool calling, and it will tell you rather than guessing if none is set. See [known-good models](#supported-ai-model-providers) for the ones that have been tested, including a fully local option.
 
-![AI Resume Review](./screenshots/jobsync-ai.gif)
 ![AI Job Match](./screenshots/jobsync-ai-jobmatch.gif)
 
 ### PDF Resume Export
@@ -116,6 +127,8 @@ Set up automations that search for new jobs on a schedule and AI-match them agai
 - **Greenhouse** — track specific companies by name from a built-in directory (or by pasting a board URL). Each run pulls every published role from those companies' Greenhouse boards, ranks them against your target titles, skills, and resume with a fast local relevance score, and runs the AI match on only the top candidates to keep costs bounded. No API key required.
 
 - **Lever** — same company-tracking workflow as Greenhouse, backed by a built-in directory of 1,160+ companies (or paste a board URL). Automatically resolves the right regional API (`lever.co` or `eu.lever.co`) per company and carries full remote/hybrid/onsite signal from the listing. No API key required.
+
+- **Ashby** — same company-tracking workflow, backed by a built-in directory of 1,860+ companies (or paste a board URL). No API key required.
 
 More job board sources are on the way. Discovered jobs are surfaced for review — accept the ones you like to promote them into your job tracker, or dismiss the rest.
 
@@ -191,6 +204,10 @@ Clients that support `streamable-http` natively can connect directly without `mc
 
 > **Self-hosting on a home network?** If your JobSync URL is a plain `http://` LAN address (not `localhost` or HTTPS), add `--allow-http` to the `mcp-remote` args — it refuses non-HTTPS URLs by default. The Settings page adds this flag automatically when it detects a non-localhost HTTP URL.
 
+
+## Help
+
+In-app usage guides — getting started, jobs, automations, and MCP access — live in the [GitHub Wiki](https://github.com/Gsync/jobsync/wiki).
 
 ## Contributing
 
@@ -276,8 +293,6 @@ Access a wide range of AI models from multiple providers through a single API.
 ## Support the Project
 
 If JobSync has been helpful in your job search, consider giving it a star on GitHub! It helps others discover the project and motivates continued development.
-
-[![GitHub Stars](https://img.shields.io/github/stars/Gsync/jobsync?style=social)](https://github.com/Gsync/jobsync)
 
 Every star means a lot — thank you for your support!
 
