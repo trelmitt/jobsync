@@ -5,6 +5,7 @@
 export {
   getResumeList,
   getResumeById,
+  getResumeTargetTitles,
   saveResumeReviewResult,
   createResumeProfile,
   editResume,

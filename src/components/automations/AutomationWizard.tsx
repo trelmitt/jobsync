@@ -113,6 +113,7 @@ export function AutomationWizard({
                       { shouldValidate: true },
                     )
                   }
+                  resumeId={formValues.resumeId}
                 />
               </div>
 
