@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +10,7 @@ import { CircularScore } from "@/components/CircularScore";
 import { getDiscoveryStatusBadgeColor } from "@/lib/badge-colors";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DISCOVERY_STATUSES } from "@/lib/constants";
+import { toastError } from "@/lib/toast";
 import {
   Check,
   X,
@@ -16,6 +19,7 @@ import {
   MapPin,
   Loader2,
   Sparkles,
+  Send,
 } from "lucide-react";
 import type { DiscoveredJob } from "@/models/automation.model";
 import { getWorkplaceTypeLabel } from "@/models/job.model";
@@ -42,6 +46,31 @@ export function DiscoveredJobRow({
 }: DiscoveredJobRowProps) {
   const analyzed = isAnalyzed(job);
   const prerankPercent = getPrerankPercent(job);
+  const router = useRouter();
+  const [filling, setFilling] = useState(false);
+
+  const handleFillApplication = async () => {
+    if (!job.resumeId) {
+      toastError("This job has no resume on record to apply with.");
+      return;
+    }
+    setFilling(true);
+    try {
+      const res = await fetch(`/api/apply/${job.id}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeId: job.resumeId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        toastError(data.message || "Failed to start application");
+        return;
+      }
+      router.push(`/dashboard/apply/${data.id}`);
+    } finally {
+      setFilling(false);
+    }
+  };
 
   return (
     <TableRow>
@@ -136,6 +165,18 @@ export function DiscoveredJobRow({
       </TableCell>
       <TableCell>{format(new Date(job.discoveredAt), "MMM d, yyyy")}</TableCell>
       <TableCell className="text-right">
+        {job.discoveryStatus === "accepted" && job.jobUrl && (
+          <Button size="sm" variant="outline" onClick={handleFillApplication} disabled={filling}>
+            {filling ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Send className="h-3.5 w-3.5 mr-1" />
+                Fill application
+              </>
+            )}
+          </Button>
+        )}
         {job.discoveryStatus === "new" && (
           <div className="flex justify-end gap-2">
             <Button

@@ -38,6 +38,7 @@ model User {
   McpAccessToken McpAccessToken[]
   Suggestion     Suggestion[]
   ChatConversation ChatConversation?
+  ApplySession    ApplySession[]
   defaultResumeId String?
   defaultResume   Resume?          @relation("UserDefaultResume", fields: [defaultResumeId], references: [id], onDelete: SetNull)
 }
@@ -89,6 +90,7 @@ model Resume {
   FileId         String?         @unique
   Job            Job[]
   Automation     Automation[]
+  ApplySession   ApplySession[]
   defaultForUser User[]          @relation("UserDefaultResume")
   reviewData     String?
 }
@@ -420,11 +422,55 @@ model Job {
   // "title-only" | "partial" | "full". Null for pre-existing/UI jobs.
   descriptionCompleteness String?
 
+  ApplySessions   ApplySession[]
+
   @@index([userId, automationId])
   @@index([userId, discoveryStatus])
   // Also has a hand-written partial unique index (not expressible here):
   // UNIQUE(userId, jobUrl) WHERE automationId IS NOT NULL
   // See migrations/20260710000002_job_automation_url_unique
+}
+
+// One fill-and-review attempt at actually applying to a job. The engine fills
+// the real application form headless and stops one step before Submit; the
+// live browser page is held server-side (src/lib/apply/session.ts) until the
+// user's own Submit click replays onto it. This row is the durable record of
+// that attempt — the in-memory page is not, and does not survive a restart.
+model ApplySession {
+  id             String   @id @default(uuid())
+  jobId          String
+  Job            Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  userId         String
+  User           User     @relation(fields: [userId], references: [id])
+  resumeId       String
+  Resume         Resume   @relation(fields: [resumeId], references: [id])
+
+  platform       String // greenhouse | lever | ashby
+  applicationUrl String
+
+  // queued -> filling -> needs_review -> submitted
+  //                   -> failed | blocked | expired | cancelled
+  status         String  @default("queued")
+  blockedReason  String? // captcha_detected | session_expired | selector_mismatch | ...
+  errorMessage   String?
+
+  fieldsFilled    String? // JSON: [{label, value, source}]
+  screenshotPaths String? // JSON string[]
+
+  startedAt   DateTime?
+  filledAt    DateTime?
+  submittedAt DateTime?
+  expiresAt   DateTime? // live-context TTL for the review step
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([jobId])
+  @@index([status, createdAt])
+  // Also has a hand-written partial unique index (not expressible here):
+  // UNIQUE(jobId) WHERE status IN ('queued', 'filling')
+  // See migrations/<timestamp>_apply_session_single_active
 }
 
 model ActivityType {

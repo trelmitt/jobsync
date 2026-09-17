@@ -139,6 +139,9 @@ export interface DiscoveredJob {
   matchData: string | null;
   discoveryStatus: DiscoveryStatus;
   discoveredAt: Date;
+  // Set by the automation run to whichever resume it matched against — reused
+  // as the apply engine's default resume so "Fill application" needs no pick.
+  resumeId?: string | null;
   JobTitle: { label: string };
   Company: { label: string };
   Location?: { label: string } | null;

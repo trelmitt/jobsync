@@ -10,6 +10,10 @@ vi.mock("@/actions/automation.actions", () => ({
   clearDiscoveredJobs: vi.fn(),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 let intersectionCallback: IntersectionObserverCallback;
 global.IntersectionObserver = class IntersectionObserver {
   constructor(callback: IntersectionObserverCallback) {
