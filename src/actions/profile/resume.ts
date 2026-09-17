@@ -123,7 +123,8 @@ export const getResumeTargetTitles = async (
   resumeId: string,
 ): Promise<string[]> => {
   const result = await getResumeById(resumeId);
-  if (!result?.success || !result.data) return [];
+  if (!result?.success) throw new Error("Failed to load resume.");
+  if (!result.data) return [];
   return extractResumeTitles(result.data);
 };
 

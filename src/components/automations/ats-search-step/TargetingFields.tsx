@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -27,6 +27,10 @@ export function TargetingFields({
   resumeId,
 }: TargetingFieldsProps) {
   const [fillingFromResume, setFillingFromResume] = useState(false);
+  const latestResumeId = useRef(resumeId);
+  latestResumeId.current = resumeId;
+  const latestValue = useRef(value);
+  latestValue.current = value;
 
   // Without target titles or keywords there is no signal to rank jobs against,
   // so the relevance floor drops everything and nothing is saved.
@@ -39,14 +43,20 @@ export function TargetingFields({
     setFillingFromResume(true);
     try {
       const resumeTitles = await getResumeTargetTitles(resumeId);
+      // The wizard keeps every step mounted, so the resume picker can change
+      // while this fetch is in flight — discard a response that no longer
+      // matches the currently selected resume.
+      if (latestResumeId.current !== resumeId) return;
       if (resumeTitles.length === 0) {
         toastError("No job titles found on that resume's work experience.");
         return;
       }
-      const existing = value.targetTitles ?? [];
-      const merged = [...new Set([...existing, ...resumeTitles])];
-      onChange({ ...value, targetTitles: merged });
-      toastSuccess(`Added ${resumeTitles.length} title(s) from the resume.`);
+      const currentValue = latestValue.current;
+      const existing = currentValue.targetTitles ?? [];
+      const added = resumeTitles.filter((t) => !existing.includes(t));
+      const merged = [...existing, ...added];
+      onChange({ ...currentValue, targetTitles: merged });
+      toastSuccess(`Added ${added.length} title(s) from the resume.`);
     } catch {
       toastError("Failed to load titles from that resume.");
     } finally {
