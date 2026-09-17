@@ -66,3 +66,18 @@ export const DOCUMENT_TYPE_BADGE_COLORS: Record<
   resume: "blue",
   "cover-letter": "violet",
 };
+
+export const APPLY_SESSION_STATUS_BADGE_COLORS: Record<string, BadgeColor> = {
+  queued: "slate",
+  filling: "blue",
+  needs_review: "amber",
+  submitted: "emerald",
+  failed: "red",
+  blocked: "red",
+  expired: "slate",
+  cancelled: "slate",
+};
+
+export function getApplySessionStatusBadgeColor(value: string): BadgeColor {
+  return APPLY_SESSION_STATUS_BADGE_COLORS[value] ?? "slate";
+}

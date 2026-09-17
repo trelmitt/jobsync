@@ -31,6 +31,12 @@ WORKDIR /app
 # Set environment variables
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Chromium for the apply-automation engine (src/lib/apply) — playwright-core
+# is runtime-only and doesn't bundle a browser download, so it drives this
+# system install via CHROMIUM_EXECUTABLE_PATH instead.
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+ENV CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 -h /home/nextjs nextjs
 
@@ -39,7 +45,7 @@ RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
 # Set up /data directory with the right permissions
-RUN mkdir -p /data/files/resumes && chown -R nextjs:nodejs /data/files/resumes
+RUN mkdir -p /data/files/resumes /data/files/apply-screenshots && chown -R nextjs:nodejs /data/files
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma

@@ -10,6 +10,7 @@ import {
   BookOpen,
   Inbox,
   Sparkles,
+  Send,
 } from "lucide-react";
 
 export const APP_CONSTANTS = {
@@ -267,6 +268,16 @@ export const APP_CONSTANTS = {
   RESUME_IMPORT_MAX_DOCX_UNCOMPRESSED_BYTES: 100 * 1024 * 1024, // 100 MB
   RESUME_IMPORT_EXTRACT_TIMEOUT_MS: 30_000, // 30 seconds
 
+  // Apply-automation engine (fill-and-review only, see src/lib/apply). Off by
+  // default until manually verified against real listings.
+  APPLY_ENGINE_ENABLED: process.env.APPLY_ENGINE_ENABLED === "true",
+  // How long a filled application stays open for review before the live
+  // browser session is torn down and the row marked expired.
+  APPLY_SESSION_TTL_MS: 30 * 60 * 1000, // 30 minutes
+  // Delay between filling each field — human-paced by policy, not
+  // anti-detection (see the plan's "no bot-detection evasion" decision).
+  APPLY_FIELD_DELAY_MS_RANGE: [300, 900] as [number, number],
+
   // Resizable panel (AI job match / resume review sheets)
   RESIZABLE_PANEL_DEFAULT_WIDTH: 450,
   RESIZABLE_PANEL_MIN_WIDTH: 320,
@@ -342,6 +353,11 @@ export const SIDEBAR_LINKS = [
     icon: Sparkles,
     route: "/dashboard/discovered",
     label: "Discovered",
+  },
+  {
+    icon: Send,
+    route: "/dashboard/apply",
+    label: "Apply Queue",
   },
   {
     icon: Inbox,
