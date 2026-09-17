@@ -3,6 +3,7 @@ import prisma from "@/lib/db";
 import { handleError } from "@/lib/utils";
 import { APP_CONSTANTS } from "@/lib/constants";
 import { resumeDetailInclude } from "@/lib/jobs/resumeDetailInclude";
+import { extractResumeTitles } from "@/lib/scraper/automation-run/resumeText";
 import { requireUser, resumeListSelect } from "./shared";
 import { createResume } from "./resumeUpload";
 import { deleteFile } from "./files";
@@ -114,6 +115,16 @@ export const getResumeById = async (
     const msg = "Failed to get resume.";
     return handleError(error, msg);
   }
+};
+
+// Job titles held on this resume, for pre-filling an automation's target
+// titles from whatever resume the user actually picked.
+export const getResumeTargetTitles = async (
+  resumeId: string,
+): Promise<string[]> => {
+  const result = await getResumeById(resumeId);
+  if (!result?.success || !result.data) return [];
+  return extractResumeTitles(result.data);
 };
 
 export const saveResumeReviewResult = async (

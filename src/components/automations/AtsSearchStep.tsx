@@ -13,9 +13,15 @@ interface AtsSearchStepProps {
   provider: JobBoard;
   value: AtsConfigValue;
   onChange: (next: AtsConfigValue) => void;
+  resumeId?: string;
 }
 
-export function AtsSearchStep({ provider, value, onChange }: AtsSearchStepProps) {
+export function AtsSearchStep({
+  provider,
+  value,
+  onChange,
+  resumeId,
+}: AtsSearchStepProps) {
   const companies = value.companies ?? [];
 
   const addCompany = (company: LeverCompany) => {
@@ -54,7 +60,7 @@ export function AtsSearchStep({ provider, value, onChange }: AtsSearchStepProps)
         onAddMany={addManyCompanies}
         onRemove={removeCompany}
       />
-      <TargetingFields value={value} onChange={onChange} />
+      <TargetingFields value={value} onChange={onChange} resumeId={resumeId} />
       <RunOptionsFields value={value} onChange={onChange} />
     </div>
   );

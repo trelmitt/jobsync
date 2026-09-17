@@ -1,26 +1,58 @@
 "use client";
 
+import { useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { Loader2, Sparkles } from "lucide-react";
 import { getAllJobTitles, createJobTitle } from "@/actions/jobtitle.actions";
 import { getAllTags, createTag } from "@/actions/tag.actions";
 import { getAllJobLocations } from "@/actions/jobLocation.actions";
 import { createLocation } from "@/actions/job.actions";
+import { getResumeTargetTitles } from "@/actions/profile.actions";
+import { toastError, toastSuccess } from "@/lib/toast";
 import { EntityStringChipInput } from "./EntityStringChipInput";
 import type { AtsConfigValue } from "./types";
 
 interface TargetingFieldsProps {
   value: AtsConfigValue;
   onChange: (next: AtsConfigValue) => void;
+  resumeId?: string;
 }
 
-export function TargetingFields({ value, onChange }: TargetingFieldsProps) {
+export function TargetingFields({
+  value,
+  onChange,
+  resumeId,
+}: TargetingFieldsProps) {
+  const [fillingFromResume, setFillingFromResume] = useState(false);
+
   // Without target titles or keywords there is no signal to rank jobs against,
   // so the relevance floor drops everything and nothing is saved.
   const noSignal =
     (value.targetTitles?.length ?? 0) === 0 &&
     (value.keywords?.length ?? 0) === 0;
+
+  const fillFromResume = async () => {
+    if (!resumeId) return;
+    setFillingFromResume(true);
+    try {
+      const resumeTitles = await getResumeTargetTitles(resumeId);
+      if (resumeTitles.length === 0) {
+        toastError("No job titles found on that resume's work experience.");
+        return;
+      }
+      const existing = value.targetTitles ?? [];
+      const merged = [...new Set([...existing, ...resumeTitles])];
+      onChange({ ...value, targetTitles: merged });
+      toastSuccess(`Added ${resumeTitles.length} title(s) from the resume.`);
+    } catch {
+      toastError("Failed to load titles from that resume.");
+    } finally {
+      setFillingFromResume(false);
+    }
+  };
 
   return (
     <>
@@ -40,6 +72,23 @@ export function TargetingFields({ value, onChange }: TargetingFieldsProps) {
           return res?.id ? res : null;
         }}
       />
+
+      {resumeId && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={fillFromResume}
+          disabled={fillingFromResume}
+        >
+          {fillingFromResume ? (
+            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5 mr-1" />
+          )}
+          Fill titles from resume
+        </Button>
+      )}
 
       <EntityStringChipInput
         label="Keywords / skills"

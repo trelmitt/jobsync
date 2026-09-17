@@ -13,6 +13,21 @@ export function extractResumeSkills(resume: ResumeWithSections): string[] {
   return labels;
 }
 
+// Distinct job titles held across a resume's work experience, for seeding an
+// automation's target-titles field from whatever resume is actually in use
+// instead of a hand-typed guess.
+export function extractResumeTitles(resume: ResumeWithSections): string[] {
+  const labels: string[] = [];
+  for (const section of resume.ResumeSections) {
+    if (section.sectionType === "experience") {
+      for (const exp of section.workExperiences) {
+        if (exp.jobTitle?.label) labels.push(exp.jobTitle.label);
+      }
+    }
+  }
+  return [...new Set(labels)];
+}
+
 export async function convertResumeForMatch(
   resume: ResumeWithSections,
 ): Promise<string> {
