@@ -24,7 +24,7 @@ const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">":
 const str = (v) => typeof v === "string" && v.trim() !== "";
 const opt = (v) => v == null || typeof v === "string";
 const lbl = (v) => str(v) && canon(v.trim()) !== "";
-const url = (v) => { try { const u = new URL(v); return /^https?:$/.test(u.protocol) && !!u.hostname; } catch { return false; } };
+const url = (v) => { if (!str(v)) return false; try { const u = new URL(v); return /^https?:$/.test(u.protocol) && !!u.hostname; } catch { return false; } };
 if (!Array.isArray(jobs)) { console.error("jobs.json must be an array"); process.exit(1); }
 jobs.forEach((j, i) => {
   const ok = j && lbl(j.company) && lbl(j.title) && url(j.url) && str(j.description) &&
