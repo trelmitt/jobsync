@@ -13,15 +13,6 @@ docker exec -i jobsync_app node -e '
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const jobs = JSON.parse(require("fs").readFileSync(0, "utf8"));
-// Validate everything up front so a bad row never leaves a half-applied import.
-const str = (v) => typeof v === "string" && v.trim() !== "";
-const opt = (v) => v == null || typeof v === "string";
-if (!Array.isArray(jobs)) { console.error("jobs.json must be an array"); process.exit(1); }
-jobs.forEach((j, i) => {
-  const ok = j && str(j.company) && str(j.title) && str(j.url) && str(j.description) &&
-    opt(j.location) && opt(j.salary) && (j.tags == null || (Array.isArray(j.tags) && j.tags.every(str)));
-  if (!ok) { console.error("invalid job at index " + i + ": " + JSON.stringify(j)); process.exit(1); }
-});
 const canon = (s, co) => {
   let v = s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase()
     .replace(/,/g, " ").replace(/\s+/g, " ").trim();
@@ -29,6 +20,17 @@ const canon = (s, co) => {
   return v;
 };
 const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+// Validate everything up front so a bad row never leaves a half-applied import.
+const str = (v) => typeof v === "string" && v.trim() !== "";
+const opt = (v) => v == null || typeof v === "string";
+const lbl = (v) => str(v) && canon(v.trim()) !== "";
+const url = (v) => { try { const u = new URL(v); return /^https?:$/.test(u.protocol) && !!u.hostname; } catch { return false; } };
+if (!Array.isArray(jobs)) { console.error("jobs.json must be an array"); process.exit(1); }
+jobs.forEach((j, i) => {
+  const ok = j && lbl(j.company) && lbl(j.title) && url(j.url) && str(j.description) &&
+    opt(j.location) && opt(j.salary) && (j.tags == null || (Array.isArray(j.tags) && j.tags.every(lbl)));
+  if (!ok) { console.error("invalid job at index " + i + ": " + JSON.stringify(j)); process.exit(1); }
+});
 async function resolve(model, label, userId, co) {
   const value = canon(label.trim(), co);
   const hit = await prisma[model].findUnique({ where: { value_createdBy: { value, createdBy: userId } } });
@@ -51,7 +53,7 @@ async function resolve(model, label, userId, co) {
     const dup = await prisma.job.findFirst({ where: { userId: user.id,
       OR: [{ jobUrl: j.url }, { companyId: company.id, jobTitleId: title.id }] } });
     if (dup) { console.log("SKIP dup:", j.company, "|", j.title); continue; }
-    const location = j.location ? await resolve("location", j.location, user.id) : null;
+    const location = j.location && lbl(j.location) ? await resolve("location", j.location, user.id) : null;
     const tags = [];
     for (const t of new Map((j.tags ?? []).map((t) => [canon(t.trim()), t])).values())
       tags.push(await resolve("tag", t, user.id));
