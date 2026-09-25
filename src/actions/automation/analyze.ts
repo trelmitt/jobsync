@@ -1,6 +1,7 @@
 "use server";
 
 import db from "@/lib/db";
+import { parseUserSettings } from "@/lib/userSettings";
 import { requireUser } from "../shared";
 import { generateText } from "ai";
 import {
@@ -64,7 +65,7 @@ export async function analyzeDiscoveredJob(jobId: string): Promise<{
     const ai = userSettings
       ? {
           ...defaultUserSettings.ai,
-          ...(JSON.parse(userSettings.settings).ai ?? {}),
+          ...(parseUserSettings(userSettings).ai ?? {}),
         }
       : defaultUserSettings.ai;
 
