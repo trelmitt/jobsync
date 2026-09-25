@@ -18,6 +18,7 @@ vi.mock("@/lib/scraper/automation-run/aiSettings", () => ({
   getUserAiSettings: vi.fn().mockResolvedValue({ provider: "macengine", model: "m" }),
   getDefaultModelForProvider: vi.fn(),
 }));
+vi.mock("@/lib/ai/rate-limiter", () => ({ checkRateLimit: vi.fn().mockReturnValue({ allowed: true }) }));
 vi.mock("@/utils/user.utils", () => ({ getCurrentUser: vi.fn().mockResolvedValue({ id: "user-1" }) }));
 
 import { generateInterviewPrep } from "@/actions/interviewPrep.actions";

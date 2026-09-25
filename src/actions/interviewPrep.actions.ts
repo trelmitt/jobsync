@@ -3,6 +3,7 @@ import MarkdownIt from "markdown-it";
 import { generateText } from "ai";
 import prisma from "@/lib/db";
 import { getModel } from "@/lib/ai";
+import { checkRateLimit } from "@/lib/ai/rate-limiter";
 import { APP_CONSTANTS } from "@/lib/constants";
 import { handleError } from "@/lib/utils";
 import { stripThinking } from "@/lib/ai/stripThinking";
@@ -22,6 +23,7 @@ const md = new MarkdownIt({ html: false, linkify: false, breaks: true });
 export const generateInterviewPrep = async (jobId: string): Promise<any | undefined> => {
   try {
     const user = await requireUser();
+    if (!checkRateLimit(user.id).allowed) throw new Error("Too many AI requests. Try again in a minute.");
     const jobLookup = await resolveJobForAgent(user.id, jobId);
     if (jobLookup.status === "no_job") throw new Error("Job not found");
     const job = jobLookup.job;
@@ -40,7 +42,11 @@ export const generateInterviewPrep = async (jobId: string): Promise<any | undefi
       system: INTERVIEW_PREP_SYSTEM_PROMPT,
       prompt: buildInterviewPrepPrompt(resumePre.data.normalizedText, jobPre.data.normalizedText),
       temperature: 0.4,
-      abortSignal: AbortSignal.timeout(APP_CONSTANTS.AI_COVER_LETTER_TIMEOUT_MS),
+      // Same context window as the other resume + posting prompts; Ollama's
+      // 2048 default would cut the resume or the tail of the pack.
+      providerOptions: { ollama: { options: { num_ctx: APP_CONSTANTS.AI_OLLAMA_NUM_CTX } } },
+      // Output is match-sized (six sections), not letter-sized.
+      abortSignal: AbortSignal.timeout(APP_CONSTANTS.AI_JOB_MATCH_TIMEOUT_MS),
     });
     const prep = stripThinking(result.text).trim();
     if (prep.length < 200) throw new Error("The prep came back empty. Try again.");

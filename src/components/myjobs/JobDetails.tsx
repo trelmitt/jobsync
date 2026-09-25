@@ -87,8 +87,8 @@ function JobDetails({
   const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [noteOpenTrigger, setNoteOpenTrigger] = useState(0);
   const [notesCount, setNotesCount] = useState(0);
-  // Bumped to remount the notes list after a prep note is written server-side.
-  const [notesKey, setNotesKey] = useState(0);
+  // Bumped to reload the notes list after a prep note is written server-side.
+  const [notesReload, setNotesReload] = useState(0);
   const [prepping, setPrepping] = useState(false);
   const router = useRouter();
   const [activeTab, handleTabChange] = useTabQueryParam(
@@ -160,7 +160,7 @@ function JobDetails({
       return;
     }
     toastSuccess("Interview prep saved to Notes");
-    setNotesKey((k) => k + 1);
+    setNotesReload((k) => k + 1);
     handleTabChange("notes");
   };
 
@@ -289,8 +289,8 @@ function JobDetails({
           >
             <Card className="p-6">
               <NotesSection
-                key={notesKey}
                 jobId={job.id}
+                reloadTrigger={notesReload}
                 openTrigger={noteOpenTrigger}
                 onCountChange={setNotesCount}
               />
