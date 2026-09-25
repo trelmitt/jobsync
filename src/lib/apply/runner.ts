@@ -6,6 +6,7 @@ import { automationLogger } from "@/lib/automation-logger";
 import { resumeDetailInclude } from "@/lib/jobs/resumeDetailInclude";
 import { detectPlatform, getApplyAdapter } from "./registry";
 import { openLiveSession, getLivePage, closeLiveSession } from "./session";
+import { prepareApplication } from "./prepare";
 import type { ApplyContext, BlockedReason } from "./types";
 import type { JobBoard } from "@/models/automation.model";
 
@@ -40,6 +41,8 @@ export async function startApplySession(
   jobId: string,
   userId: string,
   resumeId: string,
+  // Tailor the resume and write a cover letter before filling.
+  { prepare = false }: { prepare?: boolean } = {},
 ): Promise<{ id: string }> {
   const job = await db.job.findFirst({ where: { id: jobId, userId } });
   if (!job?.jobUrl) {
@@ -70,7 +73,7 @@ export async function startApplySession(
     throw error;
   }
 
-  void runFill(session.id).catch((error) => {
+  void runFill(session.id, prepare).catch((error) => {
     automationLogger.log(session.id, "error", "Apply session crashed", {
       error: String(error),
     });
@@ -88,7 +91,7 @@ function isUniqueConstraintError(error: unknown): boolean {
   );
 }
 
-async function runFill(applySessionId: string): Promise<void> {
+async function runFill(applySessionId: string, prepare: boolean): Promise<void> {
   automationLogger.startRun(applySessionId);
   const log = (message: string, metadata?: Record<string, unknown>) =>
     automationLogger.log(applySessionId, "info", message, metadata);
@@ -98,6 +101,8 @@ async function runFill(applySessionId: string): Promise<void> {
       where: { id: applySessionId },
       data: { status: "filling", startedAt: new Date() },
     });
+
+    if (prepare) await prepareApplication(applySessionId, log);
 
     const session = await db.applySession.findUniqueOrThrow({
       where: { id: applySessionId },
