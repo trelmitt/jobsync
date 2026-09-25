@@ -243,6 +243,27 @@ describe("DiscoveredJobsList", () => {
     expect((analyzeDiscoveredJob as any).mock.calls).toEqual([["a"], ["b"]]);
   });
 
+  it("locks every row's actions while a bulk analyze runs", async () => {
+    const unscored = JSON.stringify({ analyzed: false });
+    (analyzeDiscoveredJob as any).mockReset();
+    (analyzeDiscoveredJob as any).mockReturnValue(new Promise(() => {}));
+    renderList({
+      jobs: [
+        makeJob({ id: "a", matchData: unscored }),
+        makeJob({ id: "b", matchData: unscored, JobTitle: { label: "Backend Engineer" } }),
+        makeJob({ id: "c", matchData: unscored, JobTitle: { label: "Data Engineer" } }),
+      ],
+      totalJobs: 3,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Analyze 3 unscored" }));
+
+    await waitFor(() => expect(analyzeDiscoveredJob).toHaveBeenCalledTimes(1));
+    const rowAnalyze = screen.getAllByRole("button", { name: "Analyze" });
+    expect(rowAnalyze).toHaveLength(2);
+    rowAnalyze.forEach((b) => expect(b).toBeDisabled());
+  });
+
   it("stops the bulk analyze at the first failure", async () => {
     const unscored = JSON.stringify({ analyzed: false });
     (analyzeDiscoveredJob as any).mockReset();

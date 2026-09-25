@@ -149,6 +149,7 @@ export function DiscoveredJobsList({
                     key={job.id}
                     job={job}
                     isLoading={loadingAction === job.id}
+                    busy={loadingAction !== null}
                     runInProgress={runInProgress}
                     onViewDetails={onViewDetails}
                     onAnalyze={handleAnalyze}
