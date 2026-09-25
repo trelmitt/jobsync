@@ -42,6 +42,7 @@ const isHeading = (raw: string) => {
 };
 
 const listLevel = (p: string) => p.match(/<w:ilvl w:val="(\d+)"/)?.[1] ?? "0";
+const listId = (p: string) => p.match(/<w:numId w:val="(\d+)"/)?.[1] ?? "";
 
 const isListParagraph = (p: string) =>
   p.includes("<w:numPr>") || /<w:pStyle w:val="List[^"]*"/.test(p);
@@ -53,11 +54,13 @@ export function readStructure(xml: string): DocxStructure {
   let heading = "";
   let run: number[] = [];
 
-  // Mixed levels mean sub-bullets: a reorder could move one away from the
-  // bullet it belongs to, so those groups are never offered.
+  // Mixed levels mean sub-bullets, and mixed numIds mean two adjacent lists:
+  // a reorder could move a bullet away from the one (or the list) it belongs
+  // to, so those runs are never offered.
   const closeRun = () => {
-    const oneLevel = new Set(run.map((i) => listLevel(paragraphs[i]))).size === 1;
-    if (run.length > 1 && oneLevel && !FIXED_ORDER_HEADING.test(heading)) groups.push(run);
+    const oneList =
+      new Set(run.map((i) => `${listId(paragraphs[i])}/${listLevel(paragraphs[i])}`)).size === 1;
+    if (run.length > 1 && oneList && !FIXED_ORDER_HEADING.test(heading)) groups.push(run);
     run = [];
   };
 
@@ -99,7 +102,9 @@ export function ordersFromScores(
   const total = structure.groups.reduce((n, group) => n + group.length, 0);
   const scores = (raw && typeof raw === "object" ? (raw as { scores?: unknown }).scores : undefined);
   const valid =
-    Array.isArray(scores) && scores.length === total && scores.every((v) => typeof v === "number");
+    Array.isArray(scores) &&
+    scores.length === total &&
+    scores.every((v) => Number.isInteger(v) && v >= 0 && v <= 10);
   let offset = 0;
   const orders = structure.groups.map((group) => {
     const own = valid ? (scores as number[]).slice(offset, offset + group.length) : [];
