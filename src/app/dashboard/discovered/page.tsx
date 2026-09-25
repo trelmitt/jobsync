@@ -13,7 +13,8 @@ export default async function DiscoveredPage({
   searchParams: Promise<{ top?: string; view?: string }>;
 }) {
   const params = await searchParams;
-  const top = Number(params.top) || 0;
+  // Whole numbers only: Prisma rejects a fractional `take`.
+  const top = Math.floor(Number(params.top)) || 0;
   const stack = params.view === "stack";
   const res = await getDiscoveredJobs({
     discoveryStatus: "new",
