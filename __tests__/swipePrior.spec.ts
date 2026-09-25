@@ -70,7 +70,9 @@ describe("runAtsPipeline prior", () => {
   it("reorders the LLM budget inside the cap without changing which jobs are saved", () => {
     const plain = runAtsPipeline(jobs, config, [], { k: 1, cap: 3, corpus });
     expect(plain.toAnalyze[0].score).toBeGreaterThanOrEqual(APP_CONSTANTS.ATS_MIN_PRERANK_SCORE);
-    const prior = (title: string) => (/^[CE] /.test(title) ? 0.15 : 0);
+    // Penalty only, like the real prior: demoting A and B lifts C to the top;
+    // E sits past the cap either way.
+    const prior = (title: string) => (/^[AB] /.test(title) ? -0.15 : 0);
     const nudged = runAtsPipeline(jobs, config, [], { k: 1, cap: 3, corpus, prior });
     expect(nudged.toAnalyze.map((s) => s.job.title)).toEqual(["C Manager"]);
     expect(saved(nudged)).toEqual(["A Manager", "B Manager", "C Manager"]); // E stays out
