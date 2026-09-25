@@ -23,8 +23,9 @@ const MAX_PENALTY = 0.15; // about one rare target-title hit in scoreJob units
 // Analyzed jobs under the automation's threshold are saved as "dismissed" too;
 // only the user's own accept/dismiss clicks count as swipes.
 // ponytail: judged against today's threshold, so lowering it later re-labels
-// old auto-rejects in the gap as swipes. Store a marker on auto-rejects if
-// that starts to matter.
+// old auto-rejects in the gap as swipes. Deleting an automation drops its
+// swipes (automationId goes null, and with it the threshold that tells
+// auto-rejects apart). Store a user-decision marker if either starts to matter.
 export function isUserSwipe(job: {
   discoveryStatus: string | null;
   matchScore: number | null;
