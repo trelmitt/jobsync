@@ -1,9 +1,13 @@
 import { tokenize } from "./rank";
 
-// Learned from the user's own inbox: title words from jobs they accepted rank
-// a job up, words from jobs they dismissed rank it down. Only reorders the
-// relevance survivors, so it decides which jobs get the LLM call; it never
-// drops one. Tuned offline on 936 real swipes: leave-one-out AUC 0.85.
+// Learned from the user's own inbox: a job whose title reads like the ones
+// they dismissed (rather than the ones they accepted) ranks down. Penalty
+// only: swipes from one search would otherwise boost that search's roles in
+// another (AE-era accepts lifting Enterprise AE over RevOps in a J2 run).
+// Only reorders the jobs inside the save cap, so it decides which get the LLM
+// call; it never drops one. Offline on 252 real swipes (51 accepts, 201
+// dismisses): leave-one-out AUC 0.89; it pushes down 164 of the dismissed jobs
+// and 3 of the accepted ones.
 // ponytail: title-only naive-Bayes log-odds. Add description terms if title
 // words stop separating accepts from dismisses.
 
@@ -12,7 +16,30 @@ const SHRINK = 2; // pseudo-swipes pulling each word toward the overall accept r
 // preference at a 5-swipe minimum.
 const MIN_TOKEN_SWIPES = 10;
 const MIN_EACH = 10; // fewer accepts or dismisses than this: no prior
-const MAX_BONUS = 0.15; // about one rare target-title hit in scoreJob units
+const MAX_PENALTY = 0.15; // about one rare target-title hit in scoreJob units
+
+// Analyzed jobs under the automation's threshold are saved as "dismissed" too;
+// only the user's own accept/dismiss clicks count as swipes.
+// ponytail: judged against today's threshold, so lowering it later re-labels
+// old auto-rejects in the gap as swipes. Store a marker on auto-rejects if
+// that starts to matter.
+export function isUserSwipe(job: {
+  discoveryStatus: string | null;
+  matchScore: number | null;
+  matchData: string | null;
+  automation: { matchThreshold: number } | null;
+}): boolean {
+  if (job.discoveryStatus === "accepted") return true;
+  let analyzed = true; // legacy rows carry no flag but a real AI score
+  try {
+    analyzed = JSON.parse(job.matchData ?? "{}").analyzed !== false;
+  } catch {}
+  return !(
+    analyzed &&
+    job.automation !== null &&
+    (job.matchScore ?? 0) < job.automation.matchThreshold
+  );
+}
 
 export interface Swipe {
   title: string;
@@ -52,6 +79,6 @@ export function buildSwipePrior(
   return (title) => {
     let logOdds = 0;
     for (const t of new Set(tokenize(title))) logOdds += weights.get(t) ?? 0;
-    return MAX_BONUS * Math.tanh(logOdds / 2);
+    return MAX_PENALTY * Math.tanh(Math.min(0, logOdds) / 2);
   };
 }

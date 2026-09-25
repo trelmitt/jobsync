@@ -4,7 +4,7 @@ import type {
 } from "@/models/automation.model";
 import type { AtsProvider } from "../ats/types";
 import { runAtsPipeline } from "../ats/pipeline";
-import { buildSwipePrior } from "../ats/swipePrior";
+import { buildSwipePrior, isUserSwipe } from "../ats/swipePrior";
 import db from "@/lib/db";
 import type { ScoredJob } from "../ats/pipeline";
 import { dedupeJobs } from "../utils";
@@ -123,14 +123,22 @@ export async function runAtsRun(
       `${label} Ranking against ${termCount} search term(s) (${config.keywords.length} keyword(s) + ${resumeSkills.length} resume skill(s))`,
     );
 
-    const swipes = await db.job.findMany({
-      where: {
-        userId: automation.userId,
-        automationId: { not: null },
-        discoveryStatus: { in: ["accepted", "dismissed"] },
-      },
-      select: { discoveryStatus: true, JobTitle: { select: { label: true } } },
-    });
+    const swipes = (
+      await db.job.findMany({
+        where: {
+          userId: automation.userId,
+          automationId: { not: null },
+          discoveryStatus: { in: ["accepted", "dismissed"] },
+        },
+        select: {
+          discoveryStatus: true,
+          matchScore: true,
+          matchData: true,
+          JobTitle: { select: { label: true } },
+          automation: { select: { matchThreshold: true } },
+        },
+      })
+    ).filter(isUserSwipe);
     const prior = buildSwipePrior(
       swipes.map((j) => ({
         title: j.JobTitle?.label ?? "",

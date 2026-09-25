@@ -74,14 +74,9 @@ export function runAtsPipeline(
     return { job, score, components };
   });
 
-  // The prior moves the sort only; the score gate below stays lexical.
-  const prior = options?.prior;
-  const rank = new Map(
-    scored.map((s) => [s, s.score + (prior ? prior(s.job.title) : 0)]),
-  );
   const floorSurvivors = scored
     .filter((s) => passesFloor(s.components))
-    .sort((a, b) => rank.get(b)! - rank.get(a)!);
+    .sort((a, b) => b.score - a.score);
 
   // Term presence is not enough to be worth an LLM call — a single generic hit
   // clears the floor. Cut the weak tail by weighted score too. Fails open: idf
@@ -95,9 +90,19 @@ export function runAtsPipeline(
 
   const capped = ranked.slice(0, cap);
 
+  // The prior reorders only inside the cap: it picks which jobs get the LLM
+  // call, never which jobs get saved.
+  const prior = options?.prior;
+  const ordered = prior
+    ? capped
+        .map((s) => ({ s, rank: s.score + prior(s.job.title) }))
+        .sort((a, b) => b.rank - a.rank)
+        .map(({ s }) => s)
+    : capped;
+
   return {
-    toAnalyze: capped.slice(0, k),
-    toSaveUnanalyzed: capped.slice(k),
+    toAnalyze: ordered.slice(0, k),
+    toSaveUnanalyzed: ordered.slice(k),
     funnel: {
       deduped,
       located: located ? located.length : null,
