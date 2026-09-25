@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import type { DiscoveredJob } from "@/models/automation.model";
 import { getWorkplaceTypeLabel } from "@/models/job.model";
+import { stackability } from "@/lib/stackability";
 import {
   dismissDiscoveredJob,
   acceptDiscoveredJob,
@@ -77,6 +78,11 @@ export function DiscoveredInbox({ initialJobs }: DiscoveredInboxProps) {
       return null;
     }
   }, [current?.matchData]);
+
+  const stack = useMemo(
+    () => (current ? stackability({ ...current, title: current.JobTitle.label }) : null),
+    [current],
+  );
 
   const runAction = async (action: SwipeAction) => {
     if (!current || pending) return;
@@ -175,6 +181,18 @@ export function DiscoveredInbox({ initialJobs }: DiscoveredInboxProps) {
                 {current.automation?.name && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     via {current.automation.name}
+                  </p>
+                )}
+                {stack && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Stack {stack.score}
+                    {stack.green.length > 0 && (
+                      <span className="text-emerald-600"> · {stack.green.join(", ")}</span>
+                    )}
+                    {stack.red.length > 0 && <span className="text-red-600"> · {stack.red.join(", ")}</span>}
+                    {stack.exclusivity && (
+                      <span className="font-medium text-red-600"> · Exclusivity wording: read before applying</span>
+                    )}
                   </p>
                 )}
               </div>

@@ -43,6 +43,7 @@ import { JobTabEmptyState } from "./job-details/JobTabEmptyState";
 import { CoverLetterTab } from "./job-details/CoverLetterTab";
 import { useAutoMatch } from "./job-details/useAutoMatch";
 import { JobContactsTab } from "./job-details/JobContactsTab";
+import { NetworkAtCompany } from "./job-details/NetworkAtCompany";
 
 const JOB_DETAIL_TABS = [
   "description",
@@ -297,7 +298,16 @@ function JobDetails({
             </Card>
           </TabsContent>
           <TabsContent value="contacts" className="mt-4">
-            <Card className="p-6">
+            <Card className="space-y-6 p-6">
+              {job.Company?.label && (
+                <NetworkAtCompany
+                  jobId={job.id}
+                  companyId={job.Company.id}
+                  jobTitle={job.JobTitle?.label ?? "this role"}
+                  company={job.Company.label}
+                  jobUrl={job.jobUrl}
+                />
+              )}
               <JobContactsTab
                 jobId={job.id}
                 links={job.contactLinks ?? []}

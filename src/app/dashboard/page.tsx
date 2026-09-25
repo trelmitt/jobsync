@@ -7,13 +7,16 @@ import {
   getRecentJobs,
   getStaleJobs,
   getStaleContacts,
+  getFollowUpsDue,
 } from "@/actions/dashboard.actions";
+import { getDiscoveredJobs } from "@/actions/automation.actions";
 import ActivityCalendar from "@/components/dashboard/ActivityCalendar";
 import JobsActivityCard from "@/components/dashboard/JobsActivityCard";
 import JobsApplied from "@/components/dashboard/JobsAppliedCard";
 import RecentCardToggle from "@/components/dashboard/RecentCardToggle";
 import WeeklyBarChartToggle from "@/components/dashboard/WeeklyBarChartToggle";
 import { StaleContactsSection } from "@/components/dashboard/StaleContactsSection";
+import { FollowUpsSection } from "@/components/dashboard/FollowUpsSection";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
@@ -36,6 +39,8 @@ export default async function Dashboard() {
     activityCalendarData,
     staleJobs,
     staleContacts,
+    followUps,
+    discovered,
   ] = await Promise.all([
     getJobsActivitySummary(7),
     getJobsActivitySummary(30),
@@ -46,7 +51,10 @@ export default async function Dashboard() {
     getActivityCalendarData(),
     getStaleJobs(),
     getStaleContacts(),
+    getFollowUpsDue(),
+    getDiscoveredJobs({ discoveryStatus: "new", limit: 1 }),
   ]);
+  const toTriage = discovered.success ? (discovered.total ?? 0) : 0;
   const activityCalendarDataKeys = Object.keys(activityCalendarData);
   return (
     <>
@@ -78,6 +86,19 @@ export default async function Dashboard() {
           ]}
         />
       </div>
+      {toTriage > 0 && (
+        <Link href="/dashboard/discovered?top=10" className="@3xl/main:col-span-2">
+          <Card className="hover:bg-accent">
+            <CardContent className="flex items-center justify-between gap-2 p-3">
+              <div className="text-sm font-medium">Triage today&apos;s top 10</div>
+              <Badge variant="outline" className="shrink-0">
+                {toTriage} waiting
+              </Badge>
+            </CardContent>
+          </Card>
+        </Link>
+      )}
+      <FollowUpsSection jobs={followUps} />
       {staleJobs.length > 0 && (
         <div className="@3xl/main:col-span-2">
           <h2 className="mb-2 text-sm font-medium text-muted-foreground">

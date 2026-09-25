@@ -235,7 +235,11 @@ async function markSubmitted(applySessionId: string, jobId: string): Promise<voi
     where: { id: applySessionId },
     data: { status: "submitted", submittedAt: new Date() },
   });
-  await db.job.update({ where: { id: jobId }, data: { applied: true, appliedDate: new Date() } });
+  const appliedStatus = await db.jobStatus.findFirst({ where: { value: "applied" } });
+  await db.job.update({
+    where: { id: jobId },
+    data: { applied: true, appliedDate: new Date(), ...(appliedStatus && { statusId: appliedStatus.id }) },
+  });
 }
 
 export async function cancelApplySession(applySessionId: string): Promise<void> {
