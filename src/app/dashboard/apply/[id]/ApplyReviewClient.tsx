@@ -126,7 +126,9 @@ export default function ApplyReviewClient({ session: initial }: ApplyReviewClien
       const res = await fetch(`/api/apply/${session.jobId}/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resumeId: session.resumeId }),
+        // Assist sessions only exist on the prep path; a plain refill would
+        // find no adapter for the site and fail every time.
+        body: JSON.stringify({ resumeId: session.resumeId, prepare: assist }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {

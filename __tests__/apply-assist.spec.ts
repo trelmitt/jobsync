@@ -1,7 +1,7 @@
 const { db } = vi.hoisted(() => ({
   db: {
     job: { findFirst: vi.fn(), update: vi.fn() },
-    resume: { findUnique: vi.fn() },
+    resume: { findFirst: vi.fn() },
     userSettings: { findUnique: vi.fn() },
     question: { findMany: vi.fn() },
     applySession: { create: vi.fn(), update: vi.fn(), findUniqueOrThrow: vi.fn() },
@@ -26,7 +26,7 @@ import { getLivePage } from "@/lib/apply/session";
 describe("apply assist mode", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    db.resume.findUnique.mockResolvedValue({
+    db.resume.findFirst.mockResolvedValue({
       ContactInfo: { firstName: "Trevor", lastName: "Elmitt", email: "t@x.io", phone: "", url1: "https://in/t", url1Label: "LinkedIn", url2: null },
     });
     db.userSettings.findUnique.mockResolvedValue({
@@ -53,6 +53,9 @@ describe("apply assist mode", () => {
       { label: "Why us?", value: "Inference GTM", source: "question_bank" },
       { label: "Years selling?", value: "6", source: "ai_draft" },
     ]);
+    expect(db.resume.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "r1", profile: { userId: "user1" } } }),
+    );
   });
 
   it("falls back to assist only for the prep pipeline on unsupported sites", async () => {

@@ -11,7 +11,7 @@ const yesNo = (v: boolean | null) => (v === null ? null : v ? "Yes" : "No");
 
 export async function buildAnswerSheet(userId: string, resumeId: string): Promise<FilledField[]> {
   const [resume, profile, saved] = await Promise.all([
-    db.resume.findUnique({ where: { id: resumeId }, include: { ContactInfo: true } }),
+    db.resume.findFirst({ where: { id: resumeId, profile: { userId } }, include: { ContactInfo: true } }),
     loadApplyProfile(userId),
     db.question.findMany({
       where: { createdBy: userId, answer: { not: null } },
