@@ -222,6 +222,10 @@ export async function runAtsRun(
     let analyzed = 0;
     let highlighted = 0;
     let aiError: string | null = null;
+    // Non-connection failures (e.g. a proxy's "Bad Gateway", unparseable model
+    // output) — counted so an all-failed run can't finalize as plain "completed".
+    let failedMatches = 0;
+    let lastMatchError = "";
 
     // Save the un-analyzed tier (floor survivors beyond the top-K).
     if (signal?.aborted) {
@@ -302,6 +306,8 @@ export async function runAtsRun(
             automationLogger.log(automation.id, "error", aiError);
           }
         } else {
+          failedMatches++;
+          lastMatchError = matchResult.error ?? "unknown error";
           automationLogger.log(
             automation.id,
             "warning",
@@ -380,11 +386,20 @@ export async function runAtsRun(
       );
     }
 
+    const scoringError =
+      aiError ??
+      (failedMatches > 0
+        ? `AI scoring failed for ${failedMatches} of ${totalToAnalyze} job(s): ${lastMatchError}`
+        : null);
+    if (scoringError && !aiError) {
+      automationLogger.log(automation.id, "error", `${label} ${scoringError}`);
+    }
+
     automationLogger.endRun(automation.id);
 
     return await finalizeRun(runId, {
-      status: signal?.aborted ? "cancelled" : aiError ? "completed_with_errors" : "completed",
-      errorMessage: aiError || undefined,
+      status: signal?.aborted ? "cancelled" : scoringError ? "completed_with_errors" : "completed",
+      errorMessage: scoringError || undefined,
       funnelStats: buildFunnel(analyzed, highlighted),
       jobsSearched,
       jobsDeduplicated,
