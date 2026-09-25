@@ -28,6 +28,9 @@ import { isAnalyzed, getPrerankPercent } from "./matchData";
 interface DiscoveredJobRowProps {
   job: DiscoveredJob;
   isLoading: boolean;
+  // Any row's action is in flight (incl. a bulk analyze): lock every row so a
+  // second action can't overwrite the shared loading state mid-run.
+  busy: boolean;
   runInProgress: boolean;
   onViewDetails?: (job: DiscoveredJob) => void;
   onAnalyze: (jobId: string) => void;
@@ -38,6 +41,7 @@ interface DiscoveredJobRowProps {
 export function DiscoveredJobRow({
   job,
   isLoading,
+  busy,
   runInProgress,
   onViewDetails,
   onAnalyze,
@@ -136,7 +140,7 @@ export function DiscoveredJobRow({
             size="sm"
             variant="outline"
             onClick={() => onAnalyze(job.id)}
-            disabled={isLoading || runInProgress}
+            disabled={busy || runInProgress}
             title={
               runInProgress
                 ? "A run is in progress. Wait until it completes."
@@ -183,7 +187,7 @@ export function DiscoveredJobRow({
               size="sm"
               variant="outline"
               onClick={() => onAccept(job)}
-              disabled={isLoading}
+              disabled={busy}
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -195,7 +199,7 @@ export function DiscoveredJobRow({
               size="sm"
               variant="ghost"
               onClick={() => onDismiss(job.id)}
-              disabled={isLoading}
+              disabled={busy}
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
