@@ -1,6 +1,7 @@
 "use server";
 import prisma from "@/lib/db";
 import { handleError } from "@/lib/utils";
+import { parseUserSettings } from "@/lib/userSettings";
 import { requireUser } from "./shared";
 import {
   UserSettingsData,
@@ -29,7 +30,7 @@ export const getUserSettings = async (): Promise<any | undefined> => {
       };
     }
 
-    const settings: UserSettingsData = JSON.parse(userSettings.settings);
+    const settings = parseUserSettings(userSettings);
 
     return {
       success: true,
@@ -60,9 +61,7 @@ export const updateUserSettings = async (
     let mergedSettings: UserSettingsData;
 
     if (existingSettings) {
-      const currentSettings: UserSettingsData = JSON.parse(
-        existingSettings.settings
-      );
+      const currentSettings = parseUserSettings(existingSettings);
       mergedSettings = {
         ...defaultUserSettings,
         ...currentSettings,
