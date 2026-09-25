@@ -1,6 +1,7 @@
 import pLimit from "p-limit";
 import db from "@/lib/db";
 import { APP_CONSTANTS } from "@/lib/constants";
+import { parseUserSettings } from "@/lib/userSettings";
 import {
   AiProvider,
   OllamaModel,
@@ -58,7 +59,7 @@ export async function getUserAiSettings(userId: string): Promise<AiSettings> {
     return defaultUserSettings.ai;
   }
 
-  const settings = JSON.parse(userSettings.settings);
+  const settings = parseUserSettings(userSettings);
   return {
     ...defaultUserSettings.ai,
     ...settings.ai,
@@ -76,7 +77,7 @@ export async function getUserJobPreferences(
     return defaultUserSettings.jobPreferences;
   }
 
-  const settings = JSON.parse(userSettings.settings);
+  const settings = parseUserSettings(userSettings);
   return {
     ...defaultUserSettings.jobPreferences,
     ...settings.jobPreferences,

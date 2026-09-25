@@ -1,5 +1,6 @@
 import { generateText } from "ai";
 import prisma from "@/lib/db";
+import { parseUserSettings } from "@/lib/userSettings";
 import { getModel } from "@/lib/ai";
 import { defaultUserSettings, type ApplyProfile } from "@/models/userSettings.model";
 import type { FilledField } from "./types";
@@ -51,7 +52,7 @@ export async function loadApplyProfile(userId: string): Promise<ApplyProfile> {
   if (!userSettings) return defaultUserSettings.applyProfile;
   return {
     ...defaultUserSettings.applyProfile,
-    ...(JSON.parse(userSettings.settings).applyProfile ?? {}),
+    ...(parseUserSettings(userSettings).applyProfile ?? {}),
   };
 }
 
@@ -88,7 +89,7 @@ async function draftAnswer(
       where: { userId },
     });
     const ai = userSettings
-      ? { ...defaultUserSettings.ai, ...(JSON.parse(userSettings.settings).ai ?? {}) }
+      ? { ...defaultUserSettings.ai, ...(parseUserSettings(userSettings).ai ?? {}) }
       : defaultUserSettings.ai;
 
     const model = await getModel(ai.provider, ai.model || "llama3.2", userId);
