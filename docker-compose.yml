@@ -28,6 +28,9 @@ services:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - RAPIDAPI_KEY=${RAPIDAPI_KEY:-}
+      # Fill-and-review apply engine (src/lib/apply). It fills forms only;
+      # Submit stays a human click in /dashboard/apply/[id].
+      - APPLY_ENGINE_ENABLED=${APPLY_ENGINE_ENABLED:-true}
     volumes:
       - ./jobsyncdb/data:/data
     extra_hosts:
