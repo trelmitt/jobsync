@@ -5,6 +5,7 @@ import {
   getJobsActivityForPeriod,
   getActivityCalendarData,
   getFollowUpsDue,
+  getStaleJobs,
 } from "@/actions/dashboard.actions";
 import { APP_CONSTANTS } from "@/lib/constants";
 import { getCurrentUser } from "@/utils/user.utils";
@@ -530,6 +531,30 @@ describe("Dashboard Actions", () => {
 
       await expect(getJobsActivitySummary(7)).rejects.toThrow(
         "Not authenticated",
+      );
+    });
+  });
+
+  describe("getStaleJobs", () => {
+    it("skips jobs dismissed in the Discovered inbox but keeps manual ones", async () => {
+      (getCurrentUser as any).mockResolvedValue(mockUser);
+      (prisma.job.findMany as any).mockResolvedValue([]);
+
+      await getStaleJobs();
+
+      expect(prisma.job.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: [
+              {
+                OR: [
+                  { discoveryStatus: null },
+                  { discoveryStatus: { not: "dismissed" } },
+                ],
+              },
+            ],
+          }),
+        }),
       );
     });
   });
