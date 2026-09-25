@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   FileText,
+  GraduationCap,
   Loader2,
   MoreVertical,
   Pencil,
@@ -53,6 +54,8 @@ type JobDetailsHeaderProps = {
   onEdit: () => void;
   onDelete: () => void;
   onAddNote: () => void;
+  onInterviewPrep: () => void;
+  prepping: boolean;
   onChangeStatus: (status: JobStatus) => void;
 };
 
@@ -68,6 +71,8 @@ export function JobDetailsHeader({
   onEdit,
   onDelete,
   onAddNote,
+  onInterviewPrep,
+  prepping,
   onChangeStatus,
 }: JobDetailsHeaderProps) {
   const details = [
@@ -204,6 +209,14 @@ export function JobDetailsHeader({
               <DropdownMenuItem className="cursor-pointer" onClick={onAddNote}>
                 <StickyNote className="mr-2 h-4 w-4" />
                 Add a Note
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                disabled={prepping}
+                onClick={onInterviewPrep}
+              >
+                <GraduationCap className="mr-2 h-4 w-4" />
+                Interview prep
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuSub>

@@ -35,6 +35,8 @@ import { DeleteAlertDialog } from "../DeleteAlertDialog";
 import { AddJob } from "./AddJob";
 import { deleteJobById, updateJobStatus } from "@/actions/job.actions";
 import { toastError, toastSuccess } from "@/lib/toast";
+import { toast } from "sonner";
+import { generateInterviewPrep } from "@/actions/interviewPrep.actions";
 import { JobDetailsHeader } from "./job-details/JobDetailsHeader";
 import { JobSummaryCard } from "./job-details/JobSummaryCard";
 import { JobTabEmptyState } from "./job-details/JobTabEmptyState";
@@ -85,6 +87,9 @@ function JobDetails({
   const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [noteOpenTrigger, setNoteOpenTrigger] = useState(0);
   const [notesCount, setNotesCount] = useState(0);
+  // Bumped to remount the notes list after a prep note is written server-side.
+  const [notesKey, setNotesKey] = useState(0);
+  const [prepping, setPrepping] = useState(false);
   const router = useRouter();
   const [activeTab, handleTabChange] = useTabQueryParam(
     JOB_DETAIL_TABS,
@@ -144,6 +149,21 @@ function JobDetails({
         ? "The assistant is busy"
         : undefined;
 
+  const onInterviewPrep = async () => {
+    setPrepping(true);
+    const id = toast.loading("Building interview prep, about a minute…");
+    const res = await generateInterviewPrep(job.id);
+    toast.dismiss(id);
+    setPrepping(false);
+    if (!res?.success) {
+      toastError(res?.message);
+      return;
+    }
+    toastSuccess("Interview prep saved to Notes");
+    setNotesKey((k) => k + 1);
+    handleTabChange("notes");
+  };
+
   const onEditJob = () => {
     setEditJobTarget({ ...job, Status: currentStatus });
   };
@@ -190,6 +210,8 @@ function JobDetails({
           onEdit={onEditJob}
           onDelete={() => setDeleteAlertOpen(true)}
           onAddNote={onAddNote}
+          onInterviewPrep={onInterviewPrep}
+          prepping={prepping}
           onChangeStatus={onChangeStatus}
         />
 
@@ -267,6 +289,7 @@ function JobDetails({
           >
             <Card className="p-6">
               <NotesSection
+                key={notesKey}
                 jobId={job.id}
                 openTrigger={noteOpenTrigger}
                 onCountChange={setNotesCount}
