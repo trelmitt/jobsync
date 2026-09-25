@@ -7,6 +7,7 @@ import Loading from "../Loading";
 import { RecordsCount } from "../RecordsCount";
 import { SearchInput } from "../SearchInput";
 import AddContact from "../AddContact";
+import { ImportLinkedInButton } from "./ImportLinkedInButton";
 import ContactsTable from "./ContactsTable";
 import { ContactRoleFilter } from "./contacts-container/ContactRoleFilter";
 import { useContactsList } from "./contacts-container/useContactsList";
@@ -81,6 +82,7 @@ function ContactsContainer() {
               onChange={setSearchTerm}
               placeholder="Search contacts..."
             />
+            <ImportLinkedInButton onImported={list.reload} />
             <AddContact
               editContact={editContact}
               reloadContacts={list.reload}
