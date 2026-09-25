@@ -20,6 +20,19 @@ export interface TailorResult {
   rejected: string[];
 }
 
+// The job's own resume, else its automation's, else the user's default.
+export async function baseResumeIdFor(jobId: string, userId: string): Promise<string | null> {
+  const job = await db.job.findFirst({
+    where: { id: jobId, userId },
+    select: {
+      resumeId: true,
+      automation: { select: { resumeId: true } },
+      User: { select: { defaultResumeId: true } },
+    },
+  });
+  return job?.resumeId ?? job?.automation?.resumeId ?? job?.User.defaultResumeId ?? null;
+}
+
 // Writes a tailored copy of the job's resume (.docx) as a new Resume row —
 // ContactInfo cloned so the apply engine can use it directly. The base resume
 // and the job's own resumeId are never modified.
@@ -29,12 +42,11 @@ export interface TailorResult {
 export async function tailorResumeForJob(jobId: string, userId: string): Promise<TailorResult> {
   const job = await db.job.findFirst({
     where: { id: jobId, userId },
-    include: { JobTitle: true, Company: true, automation: { select: { resumeId: true } } },
+    include: { JobTitle: true, Company: true },
   });
   if (!job) throw new Error("Job not found");
 
-  const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
-  const baseId = job.resumeId ?? job.automation?.resumeId ?? user.defaultResumeId;
+  const baseId = await baseResumeIdFor(jobId, userId);
   if (!baseId) throw new Error("No resume to tailor: set a default resume first");
 
   const base = await db.resume.findFirst({
