@@ -7,6 +7,7 @@ import { resumeDetailInclude } from "@/lib/jobs/resumeDetailInclude";
 import { detectPlatform, getApplyAdapter } from "./registry";
 import { openLiveSession, getLivePage, closeLiveSession } from "./session";
 import { prepareApplication } from "./prepare";
+import { ASSIST_PLATFORM, buildAnswerSheet } from "./assist";
 import type { ApplyContext, BlockedReason } from "./types";
 import type { JobBoard } from "@/models/automation.model";
 
@@ -49,7 +50,8 @@ export async function startApplySession(
     throw new Error("Job has no application URL");
   }
 
-  const platform = detectPlatform(job.jobUrl);
+  // Only the prep pipeline falls back to assist; a plain fill needs an adapter.
+  const platform = detectPlatform(job.jobUrl) ?? (prepare ? ASSIST_PLATFORM : null);
   if (!platform) {
     throw new Error("No apply adapter for this job's platform");
   }
@@ -108,6 +110,19 @@ async function runFill(applySessionId: string, prepare: boolean): Promise<void> 
       where: { id: applySessionId },
       include: { Resume: { include: resumeDetailInclude } },
     });
+
+    if (session.platform === ASSIST_PLATFORM) {
+      await db.applySession.update({
+        where: { id: applySessionId },
+        data: {
+          status: "needs_review",
+          filledAt: new Date(),
+          fieldsFilled: JSON.stringify(await buildAnswerSheet(session.userId, session.resumeId)),
+        },
+      });
+      log("No auto-fill for this site: answer sheet ready to paste");
+      return;
+    }
 
     const adapter = getApplyAdapter(session.platform as JobBoard);
     if (!adapter) throw new Error(`No adapter for platform ${session.platform}`);
@@ -185,6 +200,13 @@ export async function submitApplySession(applySessionId: string): Promise<void> 
     throw new Error(`Cannot submit a session in status ${session.status}`);
   }
 
+  // Assist sessions have no browser: Trevor applied on the site himself, and
+  // this click only records that he did.
+  if (session.platform === ASSIST_PLATFORM) {
+    await markSubmitted(applySessionId, session.jobId);
+    return;
+  }
+
   const page = getLivePage(applySessionId);
   if (!page) {
     await db.applySession.update({
@@ -198,12 +220,16 @@ export async function submitApplySession(applySessionId: string): Promise<void> 
   if (!adapter) throw new Error(`No adapter for platform ${session.platform}`);
 
   await adapter.submit(page);
+  await markSubmitted(applySessionId, session.jobId);
+  await closeLiveSession(applySessionId);
+}
+
+async function markSubmitted(applySessionId: string, jobId: string): Promise<void> {
   await db.applySession.update({
     where: { id: applySessionId },
     data: { status: "submitted", submittedAt: new Date() },
   });
-  await db.job.update({ where: { id: session.jobId }, data: { applied: true, appliedDate: new Date() } });
-  await closeLiveSession(applySessionId);
+  await db.job.update({ where: { id: jobId }, data: { applied: true, appliedDate: new Date() } });
 }
 
 export async function cancelApplySession(applySessionId: string): Promise<void> {

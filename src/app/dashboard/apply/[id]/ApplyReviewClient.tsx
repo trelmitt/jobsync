@@ -16,7 +16,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { getApplySessionStatusBadgeColor } from "@/lib/badge-colors";
 import { toastError, toastSuccess } from "@/lib/toast";
-import { Loader2, ExternalLink } from "lucide-react";
+import { Loader2, ExternalLink, Copy } from "lucide-react";
 
 interface FilledField {
   label: string;
@@ -27,6 +27,7 @@ interface FilledField {
 interface ApplySessionDetail {
   id: string;
   status: string;
+  platform: string;
   jobId: string;
   resumeId: string;
   applicationUrl: string;
@@ -64,6 +65,16 @@ export default function ApplyReviewClient({ session: initial }: ApplyReviewClien
   const [refilling, setRefilling] = useState(false);
 
   const inProgress = session.status === "queued" || session.status === "filling";
+  // ASSIST_PLATFORM in src/lib/apply/assist.ts (server-only, so not imported):
+  // no browser ran, so there's no screenshot and Trevor submits on the site.
+  const assist = session.platform === "assist";
+
+  const copy = async (value: string) => {
+    await navigator.clipboard.writeText(value).then(
+      () => toastSuccess("Copied"),
+      () => toastError("Couldn't copy"),
+    );
+  };
 
   useEffect(() => {
     if (!inProgress) return;
@@ -92,7 +103,7 @@ export default function ApplyReviewClient({ session: initial }: ApplyReviewClien
         toastError(data.message || "Failed to submit");
         return;
       }
-      toastSuccess("Application submitted");
+      toastSuccess(assist ? "Marked as applied" : "Application submitted");
       setSession((s) => ({ ...s, status: "submitted" }));
     } finally {
       setSubmitting(false);
@@ -177,13 +188,32 @@ export default function ApplyReviewClient({ session: initial }: ApplyReviewClien
           </p>
         )}
 
+        {assist && session.status === "needs_review" && (
+          <div className="space-y-2 text-sm">
+            <p className="text-muted-foreground">
+              This site isn&apos;t auto-filled. Open the application, upload the
+              resume, paste the answers below, submit it there, then mark it here.
+            </p>
+            <div className="flex gap-4">
+              <a href={`/api/profile/resume?resumeId=${session.resumeId}`} className="text-primary hover:underline">
+                Download {session.Resume.title}
+              </a>
+              <a href={`/dashboard/myjobs/${session.jobId}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                Cover letter (job page)
+              </a>
+            </div>
+          </div>
+        )}
+
         {(session.status === "needs_review" || session.status === "submitted") && (
           <>
-            <img
-              src={`/api/apply/${session.id}/screenshot`}
-              alt="Application screenshot"
-              className="w-full rounded-md border"
-            />
+            {!assist && (
+              <img
+                src={`/api/apply/${session.id}/screenshot`}
+                alt="Application screenshot"
+                className="w-full rounded-md border"
+              />
+            )}
             <Table>
               <TableHeader>
                 <TableRow>
@@ -198,7 +228,18 @@ export default function ApplyReviewClient({ session: initial }: ApplyReviewClien
                   return (
                     <TableRow key={i}>
                       <TableCell className="font-medium">{field.label}</TableCell>
-                      <TableCell className="max-w-md truncate">{field.value}</TableCell>
+                      {assist ? (
+                        <TableCell className="max-w-md whitespace-pre-wrap">
+                          <div className="flex items-start gap-2">
+                            <span className="flex-1">{field.value}</span>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => copy(field.value)} aria-label={`Copy ${field.label}`}>
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      ) : (
+                        <TableCell className="max-w-md truncate">{field.value}</TableCell>
+                      )}
                       <TableCell>
                         <Badge variant={source.variant}>{source.label}</Badge>
                       </TableCell>
@@ -216,13 +257,15 @@ export default function ApplyReviewClient({ session: initial }: ApplyReviewClien
               <Button variant="outline" onClick={handleCancel} disabled={cancelling}>
                 Discard
               </Button>
-              <Button variant="outline" onClick={handleRefill} disabled={refilling}>
-                {refilling && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Refill
-              </Button>
+              {!assist && (
+                <Button variant="outline" onClick={handleRefill} disabled={refilling}>
+                  {refilling && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Refill
+                </Button>
+              )}
               <Button onClick={handleSubmit} disabled={submitting}>
                 {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Submit Application
+                {assist ? "I submitted it" : "Submit Application"}
               </Button>
             </>
           )}
