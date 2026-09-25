@@ -53,6 +53,17 @@ export const getStaleJobs = async (days = APP_CONSTANTS.CADENCE_STALE_DAYS) => {
         Status: { value: { notIn: TERMINAL_STATUSES } },
         createdAt: { lt: cutoff },
         OR: [{ appliedDate: null }, { appliedDate: { lt: cutoff } }],
+        // Dismissed in the Discovered inbox (status stays "new"). Spelled out
+        // because NOT { discoveryStatus: "dismissed" } also drops the NULL
+        // rows, i.e. every manually added job.
+        AND: [
+          {
+            OR: [
+              { discoveryStatus: null },
+              { discoveryStatus: { not: "dismissed" } },
+            ],
+          },
+        ],
         Interview: { none: { createdAt: { gte: cutoff } } },
         Notes: { none: { updatedAt: { gte: cutoff } } },
       },
