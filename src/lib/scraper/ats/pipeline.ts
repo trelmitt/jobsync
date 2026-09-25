@@ -36,7 +36,13 @@ export function runAtsPipeline(
   fetchedJobs: JobDetails[],
   config: PipelineConfig,
   resumeSkills: string[],
-  options?: { k?: number; cap?: number; corpus?: JobDetails[] },
+  options?: {
+    k?: number;
+    cap?: number;
+    corpus?: JobDetails[];
+    // Ranking-only nudge from the user's swipe history (see swipePrior.ts).
+    prior?: ((title: string) => number) | null;
+  },
 ): PipelineResult {
   const k = options?.k ?? APP_CONSTANTS.MAX_JOBS_PER_RUN;
   const cap = options?.cap ?? APP_CONSTANTS.ATS_LISTING_CAP;
@@ -84,9 +90,20 @@ export function runAtsPipeline(
 
   const capped = ranked.slice(0, cap);
 
+  // The prior reorders only inside the cap: it picks which jobs get the LLM
+  // call, and never lets a job past the cap (with saveUnanalyzed off, the
+  // non-top-K ones aren't saved either way).
+  const prior = options?.prior;
+  const ordered = prior
+    ? capped
+        .map((s) => ({ s, rank: s.score + prior(s.job.title) }))
+        .sort((a, b) => b.rank - a.rank)
+        .map(({ s }) => s)
+    : capped;
+
   return {
-    toAnalyze: capped.slice(0, k),
-    toSaveUnanalyzed: capped.slice(k),
+    toAnalyze: ordered.slice(0, k),
+    toSaveUnanalyzed: ordered.slice(k),
     funnel: {
       deduped,
       located: located ? located.length : null,
