@@ -540,7 +540,7 @@ describe("Dashboard Actions", () => {
       const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
       (prisma.job.findMany as any).mockResolvedValue([
         { id: "due", appliedDate: daysAgo(4), Notes: [] },
-        { id: "touched", appliedDate: daysAgo(4), Notes: [{ updatedAt: daysAgo(0) }] },
+        { id: "touched", appliedDate: daysAgo(4), Notes: [{ createdAt: daysAgo(0) }] },
         { id: "fresh", appliedDate: daysAgo(1), Notes: [] },
       ]);
 
@@ -550,6 +550,7 @@ describe("Dashboard Actions", () => {
       expect(prisma.job.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ userId: "user-id", applied: true, Interview: { none: {} } }),
+          include: expect.objectContaining({ Notes: expect.objectContaining({ orderBy: { createdAt: "desc" } }) }),
         }),
       );
     });

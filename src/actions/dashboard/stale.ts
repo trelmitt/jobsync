@@ -90,14 +90,15 @@ export const getFollowUpsDue = async () => {
       include: {
         Company: true,
         JobTitle: true,
-        Notes: { select: { updatedAt: true }, orderBy: { updatedAt: "desc" }, take: 1 },
+        // createdAt, not updatedAt: editing an old note isn't a follow-up.
+        Notes: { select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
       },
       orderBy: { appliedDate: "asc" },
     });
     const now = new Date();
     return jobs
       .flatMap(({ Notes, ...job }) => {
-        const step = dueFollowUp(job.appliedDate!, Notes[0]?.updatedAt ?? null, now);
+        const step = dueFollowUp(job.appliedDate!, Notes[0]?.createdAt ?? null, now);
         return step === null ? [] : [{ ...job, step }];
       })
       .slice(0, APP_CONSTANTS.RECENT_NUM_JOBS_ACTIVITIES);
