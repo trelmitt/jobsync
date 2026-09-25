@@ -52,6 +52,11 @@ describe("tailor docx", () => {
     expect(readStructure(doc).groups).toEqual([]);
   });
 
+  it("treats a heading with a trailing colon as a section", () => {
+    const doc = "<w:body>" + p("Experience:") + p("B1", true) + p("B2", true) + p("Education:") + p("E1", true) + p("E2", true) + "</w:body>";
+    expect(readStructure(doc).groups).toEqual([[1, 2]]);
+  });
+
   it("permutes bullets inside their group and leaves everything else as-is", () => {
     const s = readStructure(xml);
     const out = applyOrders(xml, s, [[2, 0, 1]]);
