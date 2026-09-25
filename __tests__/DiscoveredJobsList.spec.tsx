@@ -2,7 +2,9 @@ import { render, screen, waitFor, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DiscoveredJobsList } from "@/components/automations/DiscoveredJobsList";
 import type { DiscoveredJob } from "@/models/automation.model";
-import { analyzeDiscoveredJob } from "@/actions/automation.actions";
+import { acceptDiscoveredJob, analyzeDiscoveredJob } from "@/actions/automation.actions";
+
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 
 vi.mock("@/actions/automation.actions", () => ({
   acceptDiscoveredJob: vi.fn(),
@@ -12,7 +14,7 @@ vi.mock("@/actions/automation.actions", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push }),
 }));
 
 let intersectionCallback: IntersectionObserverCallback;
@@ -222,6 +224,24 @@ describe("DiscoveredJobsList", () => {
     );
 
     expect(onStatusFilterChange).toHaveBeenCalledWith(["accepted"]);
+  });
+
+  it("accepting starts the prep pipeline and opens the review page", async () => {
+    (acceptDiscoveredJob as any).mockResolvedValue({ success: true });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, id: "session-1" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = renderList({ jobs: [makeJob({ resumeId: "resume-1" } as any)] });
+
+    await userEvent.click(container.querySelector("svg.lucide-check")!.closest("button")!);
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/apply/session-1"));
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/apply/job-1/start");
+    expect(JSON.parse(init.body)).toEqual({ resumeId: "resume-1", prepare: true });
+    vi.unstubAllGlobals();
   });
 
   it("analyzes every unscored new job in order, then refreshes once", async () => {
