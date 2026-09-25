@@ -49,6 +49,12 @@ export async function startApplySession(
   if (!job?.jobUrl) {
     throw new Error("Job has no application URL");
   }
+  // The resumeId comes from the client; its ContactInfo is what gets typed
+  // into the employer's form, so it must be the user's own.
+  const resume = await db.resume.findFirst({ where: { id: resumeId, profile: { userId } }, select: { id: true } });
+  if (!resume) {
+    throw new Error("Resume not found");
+  }
 
   // Only the prep pipeline falls back to assist; a plain fill needs an adapter.
   const platform = detectPlatform(job.jobUrl) ?? (prepare ? ASSIST_PLATFORM : null);
