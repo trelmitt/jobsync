@@ -6,7 +6,7 @@ import { parseLinkedInConnections } from "@/lib/contacts/linkedinCsv";
 import { requireUser } from "../shared";
 
 // Re-importing a newer export only adds people not already there (matched on
-// profile URL); existing contacts, and anything edited on them, are left alone.
+// profile URL, else name + company); existing contacts are left alone.
 export const importLinkedInConnections = async (
   csv: string,
 ): Promise<any | undefined> => {
@@ -17,14 +17,19 @@ export const importLinkedInConnections = async (
       throw new Error("No connections found. Upload LinkedIn's Connections.csv.");
     }
 
+    // A row without a profile URL falls back to name + company, so it isn't
+    // re-added on every import.
+    const key = (url: string | null, name: string, company?: string | null) =>
+      url ?? `${name}|${company ?? ""}`.toLowerCase();
     const known = await prisma.contact.findMany({
-      where: { createdBy: user.id, linkedinUrl: { not: null } },
-      select: { linkedinUrl: true },
+      where: { createdBy: user.id },
+      select: { linkedinUrl: true, name: true, Company: { select: { label: true } } },
     });
-    const seen = new Set(known.map((c) => c.linkedinUrl));
+    const seen = new Set(known.map((c) => key(c.linkedinUrl, c.name, c.Company?.label)));
     const fresh = rows.filter((row) => {
-      if (row.url && seen.has(row.url)) return false;
-      if (row.url) seen.add(row.url);
+      const k = key(row.url, row.name, row.company);
+      if (seen.has(k)) return false;
+      seen.add(k);
       return true;
     });
 

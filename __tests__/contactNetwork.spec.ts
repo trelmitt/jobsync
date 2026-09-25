@@ -24,12 +24,13 @@ Ana,Lee,https://www.linkedin.com/in/ana,ana@x.io,"Weaviate, Inc.",Account Execut
 Ben,Ray,https://www.linkedin.com/in/ben,,Supabase,Partnerships,02 Jan 2024
 Cal,Moe,https://www.linkedin.com/in/cal,,Weaviate,,03 Jan 2024
 ,,https://www.linkedin.com/in/hidden,,,,04 Jan 2024
+Dee,Fox,,,Modal,AE,05 Jan 2024
 `;
 
 describe("parseLinkedInConnections", () => {
   it("skips the notes preamble, keeps quoted commas, drops nameless rows", () => {
     const rows = parseLinkedInConnections(CSV);
-    expect(rows.map((r) => r.name)).toEqual(["Ana Lee", "Ben Ray", "Cal Moe"]);
+    expect(rows.map((r) => r.name)).toEqual(["Ana Lee", "Ben Ray", "Cal Moe", "Dee Fox"]);
     expect(rows[0]).toMatchObject({ company: "Weaviate, Inc.", email: "ana@x.io", position: "Account Executive" });
     expect(rows[1].email).toBeNull();
   });
@@ -48,11 +49,15 @@ describe("importLinkedInConnections", () => {
   });
 
   it("adds only people not already imported, resolving each company once", async () => {
-    db.contact.findMany.mockResolvedValue([{ linkedinUrl: "https://www.linkedin.com/in/ben" }]);
+    db.contact.findMany.mockResolvedValue([
+      { linkedinUrl: "https://www.linkedin.com/in/ben", name: "Ben Ray", Company: null },
+      // No profile URL: matched on name + company instead.
+      { linkedinUrl: null, name: "Dee Fox", Company: { label: "Modal" } },
+    ]);
 
     const res = await importLinkedInConnections(CSV);
 
-    expect(res).toEqual({ success: true, data: { created: 2, skipped: 1 } });
+    expect(res).toEqual({ success: true, data: { created: 2, skipped: 2 } });
     expect(resolveCompany).toHaveBeenCalledTimes(2);
     expect(db.contact.createMany).toHaveBeenCalledWith({
       data: [

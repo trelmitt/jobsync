@@ -12,9 +12,14 @@ export function ImportLinkedInButton({ onImported }: { onImported: () => void })
   const onFile = (file?: File) => {
     if (!file) return;
     startTransition(async () => {
-      const result = await importLinkedInConnections(await file.text());
+      // A transport failure (e.g. an oversized body) rejects before the
+      // action's own error handling runs.
+      const result = await importLinkedInConnections(await file.text()).catch(() => ({
+        success: false as const,
+        message: "Upload failed. Is this LinkedIn's Connections.csv?",
+      }));
       toastActionResult(result, {
-        success: result?.success
+        success: result.success
           ? `Imported ${result.data.created} connections (${result.data.skipped} already here)`
           : "",
         onSuccess: onImported,
