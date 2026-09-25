@@ -1,6 +1,7 @@
 const { db } = vi.hoisted(() => ({
   db: {
     job: { findFirst: vi.fn(), update: vi.fn() },
+    jobStatus: { findFirst: vi.fn() },
     resume: { findFirst: vi.fn() },
     userSettings: { findUnique: vi.fn() },
     question: { findMany: vi.fn() },
@@ -75,6 +76,7 @@ describe("apply assist mode", () => {
   });
 
   it("records a manual submit without needing a live page", async () => {
+    db.jobStatus.findFirst.mockResolvedValue({ id: "st-applied" });
     await submitApplySession("s1");
 
     expect(getLivePage).not.toHaveBeenCalled();
@@ -84,7 +86,7 @@ describe("apply assist mode", () => {
     });
     expect(db.job.update).toHaveBeenCalledWith({
       where: { id: "job1" },
-      data: expect.objectContaining({ applied: true }),
+      data: expect.objectContaining({ applied: true, statusId: "st-applied" }),
     });
   });
 });
