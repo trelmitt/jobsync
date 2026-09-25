@@ -36,7 +36,13 @@ export function runAtsPipeline(
   fetchedJobs: JobDetails[],
   config: PipelineConfig,
   resumeSkills: string[],
-  options?: { k?: number; cap?: number; corpus?: JobDetails[] },
+  options?: {
+    k?: number;
+    cap?: number;
+    corpus?: JobDetails[];
+    // Ranking-only nudge from the user's swipe history (see swipePrior.ts).
+    prior?: ((title: string) => number) | null;
+  },
 ): PipelineResult {
   const k = options?.k ?? APP_CONSTANTS.MAX_JOBS_PER_RUN;
   const cap = options?.cap ?? APP_CONSTANTS.ATS_LISTING_CAP;
@@ -68,9 +74,14 @@ export function runAtsPipeline(
     return { job, score, components };
   });
 
+  // The prior moves the sort only; the score gate below stays lexical.
+  const prior = options?.prior;
+  const rank = new Map(
+    scored.map((s) => [s, s.score + (prior ? prior(s.job.title) : 0)]),
+  );
   const floorSurvivors = scored
     .filter((s) => passesFloor(s.components))
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => rank.get(b)! - rank.get(a)!);
 
   // Term presence is not enough to be worth an LLM call — a single generic hit
   // clears the floor. Cut the weak tail by weighted score too. Fails open: idf

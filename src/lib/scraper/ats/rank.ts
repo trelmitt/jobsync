@@ -18,7 +18,7 @@ const TITLE_STOP = new Set([
   "or",
 ]);
 
-function tokenize(value: string): string[] {
+export function tokenize(value: string): string[] {
   return value
     .toLowerCase()
     .split(/[^a-z0-9+#]+/)
