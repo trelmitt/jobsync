@@ -3,9 +3,13 @@
 // async, judged on deliverables, and light on meetings. Customer-facing,
 // quota-carrying work is the hardest to stack.
 //
+import { flattenHtml } from "@/lib/scraper/html";
+
 // ponytail: phrase matching, not a model pass. It misses load a posting only
 // implies ("you'll run QBRs"); add a per-signal model check if these flags
 // prove too shallow.
+
+const OFFICE = "In-office days";
 
 interface Signal {
   label: string;
@@ -24,7 +28,7 @@ const ENGAGEMENT: Signal = {
 const ROLE_FAMILIES: Signal[] = [
   {
     label: "Internal-facing GTM",
-    re: /\b(rev ?ops|revenue operations|sales operations|sales ops|gtm (ops|operations|engineer(ing)?|systems)|sales systems|crm|enablement|deal desk)\b/i,
+    re: /\b(rev ?ops|revenue operations|sales operations|sales ops|gtm (ops|operations|engineer(ing)?|systems)|sales systems|crm (admin(istrator)?|manager|systems|operations)|enablement|deal desk)\b/i,
     weight: 15,
   },
   {
@@ -34,7 +38,7 @@ const ROLE_FAMILIES: Signal[] = [
   },
   {
     label: "Quota / customer-facing",
-    re: /\b(account executive|ae|sdr|bdr|sales development|customer success|csm|sales manager|head of sales|director of sales|vp,? sales)\b/i,
+    re: /\b(account executive|ae|sdr|bdr|sales development|customer success|csm|sales manager|head of sales|sales head|director,? (of )?sales|sales director|[sea]?vp,? (of )?sales)\b/i,
     weight: -15,
   },
 ];
@@ -58,9 +62,10 @@ const DESCRIPTION_SIGNALS: Signal[] = [
   },
   { label: "Heavy travel", re: /\b[3-9]\d\s*%\s*(of the time\s*)?travel|\btravel\b[^.]{0,20}\b[3-9]\d\s*%/i, weight: -15 },
   // Office context only: "on-site lunch", "hybrid methodologies" and "office
-  // productivity tools" aren't attendance requirements.
+  // productivity tools" aren't attendance requirements. The scraped
+  // workplaceType covers what the text leaves implicit (see stackability()).
   {
-    label: "In-office days",
+    label: OFFICE,
     re: /#li-hybrid|\bhybrid (role|position|work|model|schedule|policy|team)\b|\bin[- ]office (days|policy|expectations|work)|\b\d days?(\/| per | a )week in\b|\bwork(ing)? (on[- ]?site|in (the|our) office)\b|\b(located|based) on[- ]?site\b|\bon[- ]?site (in|at) (our|the)\b/i,
     weight: -10,
   },
@@ -81,12 +86,18 @@ export interface Stackability {
 
 export const STACKABLE_SCORE = 60;
 
-export function stackability(job: { title: string; description: string; jobType?: string | null }): Stackability {
-  const text = job.description.replace(/<[^>]+>/g, " ");
+export function stackability(job: {
+  title: string;
+  description: string;
+  jobType?: string | null;
+  workplaceType?: string | null;
+}): Stackability {
+  const text = flattenHtml(job.description);
+  const office = job.workplaceType === "ONSITE" || job.workplaceType === "HYBRID";
   const hits = [
     ...(ENGAGEMENT.re.test(job.title) || job.jobType === "PT" || job.jobType === "C" ? [ENGAGEMENT] : []),
     ...ROLE_FAMILIES.filter((s) => s.re.test(job.title)),
-    ...DESCRIPTION_SIGNALS.filter((s) => s.re.test(text)),
+    ...DESCRIPTION_SIGNALS.filter((s) => s.re.test(text) || (office && s.label === OFFICE)),
   ];
   const score = Math.min(100, Math.max(0, 50 + hits.reduce((n, s) => n + s.weight, 0)));
   return {

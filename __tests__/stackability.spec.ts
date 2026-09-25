@@ -47,4 +47,18 @@ describe("stackability", () => {
     });
     expect(s.exclusivity).toBe(true);
   });
+
+  it("keeps the quota penalty on sales titles that name a CRM or put the level first", () => {
+    for (const title of ["Enterprise Account Executive, CRM", "SVP Sales", "Sales Director", "Director, Sales"]) {
+      expect(stackability({ title, description: "" }).red).toContain("Quota / customer-facing");
+    }
+    expect(stackability({ title: "CRM Administrator", description: "" }).green).toContain("Internal-facing GTM");
+  });
+
+  it("reads entity-encoded text and the scraped workplace type", () => {
+    expect(stackability({ title: "RevOps", description: "<p>flexible&nbsp;hours</p>" }).green).toContain("Flexible hours");
+    expect(
+      stackability({ title: "RevOps", description: "A full-time, on-site role.", workplaceType: "ONSITE" }).red,
+    ).toEqual(["In-office days"]);
+  });
 });
