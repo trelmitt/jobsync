@@ -263,4 +263,32 @@ describe("DiscoveredJobsList", () => {
     expect(analyzeDiscoveredJob).toHaveBeenCalledTimes(1);
     expect(onRefresh).not.toHaveBeenCalled();
   });
+
+  it("keeps what succeeded when a later job fails, and stays busy until the refresh lands", async () => {
+    const unscored = JSON.stringify({ analyzed: false });
+    (analyzeDiscoveredJob as any).mockReset();
+    (analyzeDiscoveredJob as any)
+      .mockResolvedValueOnce({ success: true, matchScore: 70 })
+      .mockResolvedValueOnce({ success: false, message: "Bad Gateway" });
+    let finishRefresh!: () => void;
+    const onRefresh = vi.fn(() => new Promise<void>((resolve) => (finishRefresh = resolve)));
+    renderList({
+      jobs: [
+        makeJob({ id: "a", matchData: unscored }),
+        makeJob({ id: "b", matchData: unscored, JobTitle: { label: "Backend Engineer" } }),
+        makeJob({ id: "c", matchData: unscored, JobTitle: { label: "Data Engineer" } }),
+      ],
+      totalJobs: 3,
+      onRefresh,
+    });
+
+    const button = screen.getByRole("button", { name: "Analyze 3 unscored" });
+    await userEvent.click(button);
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect((analyzeDiscoveredJob as any).mock.calls).toEqual([["a"], ["b"]]);
+    expect(button).toBeDisabled();
+    await act(async () => finishRefresh());
+    await waitFor(() => expect(button).toBeEnabled());
+  });
 });

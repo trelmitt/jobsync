@@ -33,7 +33,7 @@ interface DiscoveredJobsListProps {
   statusFilter: DiscoveryStatus[];
   onStatusFilterChange: (filter: DiscoveryStatus[]) => void;
   automationId: string;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
   onViewDetails?: (job: DiscoveredJob) => void;
   // True while an automation run is in flight. The Analyze button is blocked to avoid concurrent LLM calls.
   runInProgress?: boolean;
