@@ -1,4 +1,4 @@
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { render, screen, waitFor, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DiscoveredJobsList } from "@/components/automations/DiscoveredJobsList";
 import type { DiscoveredJob } from "@/models/automation.model";
@@ -259,9 +259,10 @@ describe("DiscoveredJobsList", () => {
     await userEvent.click(screen.getByRole("button", { name: "Analyze 3 unscored" }));
 
     await waitFor(() => expect(analyzeDiscoveredJob).toHaveBeenCalledTimes(1));
-    const rowAnalyze = screen.getAllByRole("button", { name: "Analyze" });
-    expect(rowAnalyze).toHaveLength(2);
-    rowAnalyze.forEach((b) => expect(b).toBeDisabled());
+    // Analyze (or its spinner), Accept and Dismiss on each of the 3 rows.
+    const rowActions = within(screen.getAllByRole("rowgroup")[1]).getAllByRole("button");
+    expect(rowActions).toHaveLength(9);
+    rowActions.forEach((b) => expect(b).toBeDisabled());
   });
 
   it("stops the bulk analyze at the first failure", async () => {
