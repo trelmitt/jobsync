@@ -3,8 +3,10 @@
 import {
   ArrowLeft,
   FileText,
+  Loader2,
   MoreVertical,
   Pencil,
+  Send,
   Sparkles,
   StickyNote,
   Tags,
@@ -12,6 +14,10 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { startPreparedApply } from "@/components/apply/startPreparedApply";
+import { toastError } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -71,6 +77,19 @@ export function JobDetailsHeader({
   ]
     .filter(Boolean)
     .join(" · ");
+  const router = useRouter();
+  const [preparing, setPreparing] = useState(false);
+
+  const handlePrepApplication = async () => {
+    setPreparing(true);
+    const started = await startPreparedApply(job.id, job.resumeId);
+    if (started.id) {
+      router.push(`/dashboard/apply/${started.id}`);
+      return;
+    }
+    toastError(started.message);
+    setPreparing(false);
+  };
 
   return (
     <div className="flex flex-col gap-4 @5xl/main:flex-row @5xl/main:items-center">
@@ -99,6 +118,24 @@ export function JobDetailsHeader({
         </div>
       </div>
       <div className="flex flex-wrap justify-end gap-2">
+        {job.jobUrl && (
+          <Button
+            variant="outline"
+            className="cursor-pointer"
+            disabled={preparing}
+            title="Tailor your resume, write a cover letter, and fill the application for review"
+            onClick={handlePrepApplication}
+          >
+            {preparing ? (
+              <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4 sm:mr-2" />
+            )}
+            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+              Prep application
+            </span>
+          </Button>
+        )}
         <Button
           variant="outline"
           className="cursor-pointer"

@@ -1,8 +1,10 @@
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { render, screen, waitFor, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DiscoveredJobsList } from "@/components/automations/DiscoveredJobsList";
 import type { DiscoveredJob } from "@/models/automation.model";
-import { analyzeDiscoveredJob } from "@/actions/automation.actions";
+import { acceptDiscoveredJob, analyzeDiscoveredJob } from "@/actions/automation.actions";
+
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 
 vi.mock("@/actions/automation.actions", () => ({
   acceptDiscoveredJob: vi.fn(),
@@ -12,7 +14,7 @@ vi.mock("@/actions/automation.actions", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push }),
 }));
 
 let intersectionCallback: IntersectionObserverCallback;
@@ -224,6 +226,24 @@ describe("DiscoveredJobsList", () => {
     expect(onStatusFilterChange).toHaveBeenCalledWith(["accepted"]);
   });
 
+  it("accepting starts the prep pipeline and opens the review page", async () => {
+    (acceptDiscoveredJob as any).mockResolvedValue({ success: true });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, id: "session-1" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = renderList({ jobs: [makeJob({ resumeId: "resume-1" } as any)] });
+
+    await userEvent.click(container.querySelector("svg.lucide-check")!.closest("button")!);
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/apply/session-1"));
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/apply/job-1/start");
+    expect(JSON.parse(init.body)).toEqual({ resumeId: "resume-1", prepare: true });
+    vi.unstubAllGlobals();
+  });
+
   it("analyzes every unscored new job in order, then refreshes once", async () => {
     const unscored = JSON.stringify({ analyzed: false });
     (analyzeDiscoveredJob as any).mockResolvedValue({ success: true, matchScore: 70 });
@@ -241,6 +261,28 @@ describe("DiscoveredJobsList", () => {
 
     await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
     expect((analyzeDiscoveredJob as any).mock.calls).toEqual([["a"], ["b"]]);
+  });
+
+  it("locks every row's actions while a bulk analyze runs", async () => {
+    const unscored = JSON.stringify({ analyzed: false });
+    (analyzeDiscoveredJob as any).mockReset();
+    (analyzeDiscoveredJob as any).mockReturnValue(new Promise(() => {}));
+    renderList({
+      jobs: [
+        makeJob({ id: "a", matchData: unscored }),
+        makeJob({ id: "b", matchData: unscored, JobTitle: { label: "Backend Engineer" } }),
+        makeJob({ id: "c", matchData: unscored, JobTitle: { label: "Data Engineer" } }),
+      ],
+      totalJobs: 3,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Analyze 3 unscored" }));
+
+    await waitFor(() => expect(analyzeDiscoveredJob).toHaveBeenCalledTimes(1));
+    // Analyze (or its spinner), Accept and Dismiss on each of the 3 rows.
+    const rowActions = within(screen.getAllByRole("rowgroup")[1]).getAllByRole("button");
+    expect(rowActions).toHaveLength(9);
+    rowActions.forEach((b) => expect(b).toBeDisabled());
   });
 
   it("stops the bulk analyze at the first failure", async () => {
