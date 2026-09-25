@@ -38,6 +38,31 @@ export function useDiscoveredJobActions(
     }
   };
 
+  // One LLM call at a time, same as clicking Analyze on each row. Stops at
+  // the first failure so a provider outage shows one error, not one per job.
+  const handleAnalyzeAll = async (jobIds: string[]) => {
+    let done = 0;
+    for (const jobId of jobIds) {
+      setLoadingAction(jobId);
+      try {
+        const result = await analyzeDiscoveredJob(jobId);
+        if (!result.success) {
+          toastError(result.message);
+          break;
+        }
+        done++;
+      } catch {
+        toastError("Failed to analyze job");
+        break;
+      }
+    }
+    setLoadingAction(null);
+    if (done > 0) {
+      toastSuccess(`${done} of ${jobIds.length} job(s) analyzed.`, "Match analyzed");
+      onRefresh();
+    }
+  };
+
   const handleAccept = async (job: DiscoveredJob) => {
     setLoadingAction(job.id);
     try {
@@ -72,5 +97,5 @@ export function useDiscoveredJobActions(
     }
   };
 
-  return { loadingAction, handleAnalyze, handleAccept, handleDismiss };
+  return { loadingAction, handleAnalyze, handleAnalyzeAll, handleAccept, handleDismiss };
 }

@@ -61,7 +61,7 @@ export function DiscoveredJobsList({
   const [clearOpen, setClearOpen] = useState(false);
   const [clearIncludeNew, setClearIncludeNew] = useState(false);
 
-  const { loadingAction, handleAnalyze, handleAccept, handleDismiss } =
+  const { loadingAction, handleAnalyze, handleAnalyzeAll, handleAccept, handleDismiss } =
     useDiscoveredJobActions(onRefresh, onBusyChange);
 
   const sentinelRef = useJobsInfiniteScroll(
@@ -81,6 +81,11 @@ export function DiscoveredJobsList({
       return b.matchScore - a.matchScore;
     });
   }, [jobs]);
+
+  // ponytail: loaded rows only (infinite scroll); scroll to load more first.
+  const unscoredIds = sortedJobs
+    .filter((job) => job.discoveryStatus === "new" && !isAnalyzed(job))
+    .map((job) => job.id);
 
   const hasAnyJobs = dismissedCount + newCount + acceptedCount > 0;
 
@@ -110,6 +115,9 @@ export function DiscoveredJobsList({
         }}
         statusFilter={statusFilter}
         onStatusFilterChange={onStatusFilterChange}
+        unscoredCount={unscoredIds.length}
+        analyzeAllDisabled={loadingAction !== null || runInProgress}
+        onAnalyzeAll={() => handleAnalyzeAll(unscoredIds)}
       />
       <CardContent>
         {jobs.length === 0 ? (
