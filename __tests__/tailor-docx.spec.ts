@@ -52,6 +52,13 @@ describe("tailor docx", () => {
     expect(readStructure(doc).groups).toEqual([]);
   });
 
+  it("never groups two adjacent lists, even at the same level", () => {
+    const item = (text: string, numId: string) =>
+      `<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="${numId}"/></w:numPr></w:pPr><w:r><w:t>${text}</w:t></w:r></w:p>`;
+    const doc = "<w:body>" + p("Experience") + item("A1", "1") + item("A2", "1") + item("B1", "2") + "</w:body>";
+    expect(readStructure(doc).groups).toEqual([]);
+  });
+
   it("treats a heading with a trailing colon as a section", () => {
     const doc = "<w:body>" + p("Experience:") + p("B1", true) + p("B2", true) + p("Education:") + p("E1", true) + p("E2", true) + "</w:body>";
     expect(readStructure(doc).groups).toEqual([[1, 2]]);
@@ -75,6 +82,9 @@ describe("tailor docx", () => {
     expect(short.orders).toEqual([[0, 1, 2]]);
     expect(short.rejected).toEqual(["relevance scores missing or malformed (expected 3); kept the original order"]);
     expect(ordersFromScores({ scores: [1, "9", 3] }, s).orders).toEqual([[0, 1, 2]]);
+    for (const bad of [9.5, 12, -1, NaN]) {
+      expect(ordersFromScores({ scores: [1, bad, 3] }, s).orders).toEqual([[0, 1, 2]]);
+    }
     expect(ordersFromScores(null, s).orders).toEqual([[0, 1, 2]]);
   });
 
