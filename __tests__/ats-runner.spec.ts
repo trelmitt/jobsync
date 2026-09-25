@@ -142,6 +142,38 @@ describe("runAutomation (lever)", () => {
     expect(result.jobsSaved).toBe(1);
   });
 
+  it("flags a run whose AI scoring failed instead of reporting it completed", async () => {
+    // 2026-09-24 outage: the provider proxy answered "Bad Gateway" (not a
+    // connection error), every match failed, and the run still said completed.
+    (searchLeverJobs as any).mockResolvedValue({
+      jobs: [makeJob("Frontend Engineer", "React")],
+      errors: [],
+    });
+    (generateText as any).mockRejectedValue(new Error("Bad Gateway"));
+
+    const result = await runAutomation(leverAutomation);
+
+    expect(result.status).toBe("completed_with_errors");
+    expect(result.errorMessage).toBe("AI scoring failed for 1 of 1 job(s): Bad Gateway");
+    expect(result.jobsProcessed).toBe(0);
+  });
+
+  it("reports a partial scoring failure with the count, keeping the jobs that scored", async () => {
+    (searchLeverJobs as any).mockResolvedValue({
+      jobs: [makeJob("Frontend Engineer", "React"), makeJob("Frontend Engineer II", "React")],
+      errors: [],
+    });
+    (generateText as any)
+      .mockResolvedValueOnce({ text: "SCORES: match=90 recommendation=strong match\n\n## Summary\nGreat fit" })
+      .mockRejectedValueOnce(new Error("Bad Gateway"));
+
+    const result = await runAutomation(leverAutomation);
+
+    expect(result.status).toBe("completed_with_errors");
+    expect(result.errorMessage).toBe("AI scoring failed for 1 of 2 job(s): Bad Gateway");
+    expect(result.jobsProcessed).toBe(1);
+  });
+
   it("persists Lever's workplaceType through to the job record", async () => {
     (searchLeverJobs as any).mockResolvedValue({
       jobs: [makeJob("Frontend Engineer", "React", { workplaceType: "HYBRID" })],
