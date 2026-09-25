@@ -44,7 +44,7 @@ describe("prepareApplication", () => {
   });
 
   it("points the session at the tailored resume and writes the letter from the base resume", async () => {
-    tailorResumeForJob.mockResolvedValue({ resumeId: "tailored", summaryChanged: false, groupsReordered: 2, rejected: [] });
+    tailorResumeForJob.mockResolvedValue({ resumeId: "tailored", groupsReordered: 2, rejected: [] });
 
     await prepareApplication("s1", log);
 
@@ -68,7 +68,7 @@ describe("prepareApplication", () => {
   });
 
   it("never throws when the letter fails, so the fill still runs", async () => {
-    tailorResumeForJob.mockResolvedValue({ resumeId: "tailored", summaryChanged: false, groupsReordered: 0, rejected: [] });
+    tailorResumeForJob.mockResolvedValue({ resumeId: "tailored", groupsReordered: 0, rejected: [] });
     generateText.mockRejectedValue(new Error("Bad Gateway"));
 
     await expect(prepareApplication("s1", log)).resolves.toBeUndefined();

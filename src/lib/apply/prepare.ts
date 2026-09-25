@@ -32,7 +32,6 @@ export async function prepareApplication(applySessionId: string, log: Log): Prom
       data: { resumeId: tailored.resumeId },
     });
     log("Tailored resume ready", {
-      summaryChanged: tailored.summaryChanged,
       groupsReordered: tailored.groupsReordered,
       keptOriginal: tailored.rejected,
     });
