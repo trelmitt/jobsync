@@ -14,7 +14,7 @@ import { startPreparedApply } from "@/components/apply/startPreparedApply";
 // Per-job analyze/accept/dismiss, serialized through a single loading id so the
 // parent can also block starting a run while one is in flight.
 export function useDiscoveredJobActions(
-  onRefresh: () => void,
+  onRefresh: () => void | Promise<void>,
   onBusyChange?: (busy: boolean) => void,
 ) {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -39,6 +39,33 @@ export function useDiscoveredJobActions(
     } finally {
       setLoadingAction(null);
     }
+  };
+
+  // One LLM call at a time, same as clicking Analyze on each row. Stops at
+  // the first failure so a provider outage shows one error, not one per job.
+  const handleAnalyzeAll = async (jobIds: string[]) => {
+    let done = 0;
+    for (const jobId of jobIds) {
+      setLoadingAction(jobId);
+      try {
+        const result = await analyzeDiscoveredJob(jobId);
+        if (!result.success) {
+          toastError(result.message);
+          break;
+        }
+        done++;
+      } catch {
+        toastError("Failed to analyze job");
+        break;
+      }
+    }
+    if (done > 0) {
+      toastSuccess(`${done} of ${jobIds.length} job(s) analyzed.`, "Match analyzed");
+      // Stay busy until the list reloads, or a quick second click would
+      // resubmit the rows that were just analyzed.
+      await onRefresh();
+    }
+    setLoadingAction(null);
   };
 
   const handleAccept = async (job: DiscoveredJob) => {
@@ -88,5 +115,5 @@ export function useDiscoveredJobActions(
     }
   };
 
-  return { loadingAction, handleAnalyze, handleAccept, handleDismiss };
+  return { loadingAction, handleAnalyze, handleAnalyzeAll, handleAccept, handleDismiss };
 }
