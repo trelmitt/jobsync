@@ -3,8 +3,8 @@ import fs from "fs/promises";
 import { generateText } from "ai";
 import db from "@/lib/db";
 import { getModel } from "@/lib/ai";
-import { defaultUserSettings } from "@/models/userSettings.model";
-import { saveResumeUpload } from "@/lib/resumeFiles";
+import { getUserAiSettings } from "@/lib/scraper/automation-run/aiSettings";
+import { removeResumeFile, saveResumeUpload } from "@/lib/resumeFiles";
 import {
   applyEdits,
   loadDocumentXml,
@@ -49,10 +49,7 @@ export async function tailorResumeForJob(jobId: string, userId: string): Promise
   const { zip, xml } = await loadDocumentXml(await fs.readFile(base.File.filePath));
   const structure = readStructure(xml);
 
-  const settings = await db.userSettings.findUnique({ where: { userId } });
-  const ai = settings
-    ? { ...defaultUserSettings.ai, ...(JSON.parse(settings.settings).ai ?? {}) }
-    : defaultUserSettings.ai;
+  const ai = await getUserAiSettings(userId);
   const jobTitle = job.JobTitle?.label ?? "this role";
   const company = job.Company?.label ?? "";
   const description = (job.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
@@ -73,31 +70,37 @@ export async function tailorResumeForJob(jobId: string, userId: string): Promise
   const upload = await saveResumeUpload(`Tailored_${safe}.docx`, out);
 
   const contact = base.ContactInfo;
-  const tailored = await db.resume.create({
-    data: {
-      profile: { connect: { id: base.profileId } },
-      title: `Tailored · ${company} · ${jobTitle}`,
-      File: {
-        create: { fileName: upload.fileName, filePath: upload.filePath, fileType: base.File.fileType },
-      },
-      ...(contact && {
-        ContactInfo: {
-          create: {
-            firstName: contact.firstName,
-            lastName: contact.lastName,
-            headline: contact.headline,
-            email: contact.email,
-            phone: contact.phone,
-            address: contact.address,
-            url1: contact.url1,
-            url1Label: contact.url1Label,
-            url2: contact.url2,
-            url2Label: contact.url2Label,
-          },
+  const tailored = await db.resume
+    .create({
+      data: {
+        profile: { connect: { id: base.profileId } },
+        title: `Tailored · ${company} · ${jobTitle}`,
+        File: {
+          create: { fileName: upload.fileName, filePath: upload.filePath, fileType: base.File.fileType },
         },
-      }),
-    },
-  });
+        ...(contact && {
+          ContactInfo: {
+            create: {
+              firstName: contact.firstName,
+              lastName: contact.lastName,
+              headline: contact.headline,
+              email: contact.email,
+              phone: contact.phone,
+              address: contact.address,
+              url1: contact.url1,
+              url1Label: contact.url1Label,
+              url2: contact.url2,
+              url2Label: contact.url2Label,
+            },
+          },
+        }),
+      },
+    })
+    .catch(async (error) => {
+      // No Resume row points at the file, so nothing else would ever clean it up.
+      await removeResumeFile(upload.filePath);
+      throw error;
+    });
 
   return {
     resumeId: tailored.id,

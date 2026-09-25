@@ -10,6 +10,10 @@ import JSZip from "jszip";
 const PARAGRAPH = /<w:p[ >][\s\S]*?<\/w:p>/g;
 const TEXT_RUN = /<w:t(?: [^>]*)?>([^<]*)<\/w:t>/g;
 const SUMMARY_HEADING = /^(professional\s+)?(summary|profile)$/i;
+// Known section labels in any case, so a title-case "Education" still ends
+// the previous section; anything else short and all-caps counts too.
+const SECTION_NAME =
+  /^((professional|career|work)\s+)?(summary|profile|experience|education|skills|certifications?|achievements|key achievements|projects)$/i;
 // Bullet order there is conventional (chronological), not a relevance call.
 const FIXED_ORDER_HEADING = /education|certification/i;
 
@@ -41,7 +45,15 @@ const paragraphText = (p: string) =>
   decode(Array.from(p.matchAll(TEXT_RUN), (m) => m[1]).join(""));
 
 const isHeading = (text: string) =>
-  text.length > 0 && text.length <= 40 && /^[A-Z][A-Z &/]+$/.test(text);
+  text.length > 0 && text.length <= 40 && (/^[A-Z][A-Z &/]+$/.test(text) || SECTION_NAME.test(text));
+
+const listLevel = (p: string) => p.match(/<w:ilvl w:val="(\d+)"/)?.[1] ?? "0";
+
+// A summary split across formatted runs (bold lead-in, hyperlink) can't be
+// rewritten without restyling the whole thing, so it's left alone.
+const isPlainParagraph = (p: string) =>
+  !p.includes("<w:hyperlink") &&
+  Array.from(p.matchAll(TEXT_RUN)).filter((m) => m[1].trim()).length === 1;
 
 const isListParagraph = (p: string) =>
   p.includes("<w:numPr>") || /<w:pStyle w:val="List[^"]*"/.test(p);
@@ -54,8 +66,11 @@ export function readStructure(xml: string): DocxStructure {
   let heading = "";
   let run: number[] = [];
 
+  // Mixed levels mean sub-bullets: a reorder could move one away from the
+  // bullet it belongs to, so those groups are never offered.
   const closeRun = () => {
-    if (run.length > 1 && !FIXED_ORDER_HEADING.test(heading)) groups.push(run);
+    const oneLevel = new Set(run.map((i) => listLevel(paragraphs[i]))).size === 1;
+    if (run.length > 1 && oneLevel && !FIXED_ORDER_HEADING.test(heading)) groups.push(run);
     run = [];
   };
 
@@ -69,12 +84,13 @@ export function readStructure(xml: string): DocxStructure {
     if (isHeading(text)) {
       heading = text;
     } else if (summaryIndex === null && text && SUMMARY_HEADING.test(heading)) {
-      summaryIndex = i;
+      summaryIndex = -1;
+      if (isPlainParagraph(p)) summaryIndex = i;
     }
   });
   closeRun();
 
-  return { texts, summaryIndex, groups };
+  return { texts, summaryIndex: summaryIndex === -1 ? null : summaryIndex, groups };
 }
 
 function replaceParagraphText(p: string, text: string): string {
@@ -107,15 +123,21 @@ export function applyEdits(xml: string, structure: DocxStructure, edits: DocxEdi
   return xml.replace(PARAGRAPH, () => out[i++]);
 }
 
+// Numbers carry their units: "120%" and "$120" are different facts.
 const numbersIn = (s: string) =>
-  new Set(Array.from(s.matchAll(/\d+(?:[.,]\d+)*/g), (m) => m[0].replace(/,/g, "")));
+  new Set(
+    Array.from(s.matchAll(/[$€£]?\d+(?:[.,]\d+)*(?:\s?(?:%|[kmb]\b|x\b))?/gi), (m) =>
+      m[0].replace(/[,\s]/g, "").toLowerCase(),
+    ),
+  );
 
 // Facts are locked, so a rewrite may only recombine the resume's own words:
 // any new content word ("co-marketing", a job title he never held) is how a
 // small model smuggles in a claim. Naive stemming keeps plurals/tenses legal.
 const stem = (w: string) => w.replace(/(ing|ed|es|s)$/, "");
+// Two letters and up, so short titles and acronyms ("CEO", "VP") count.
 const contentWords = (s: string) =>
-  Array.from(s.toLowerCase().matchAll(/[a-z][a-z'-]{3,}/g), (m) => m[0]);
+  Array.from(s.toLowerCase().matchAll(/[a-z][a-z'-]+/g), (m) => m[0]);
 
 const isPermutation = (order: unknown, n: number): order is number[] =>
   Array.isArray(order) &&
