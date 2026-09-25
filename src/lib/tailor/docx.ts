@@ -36,8 +36,10 @@ const decode = (s: string) =>
 const paragraphText = (p: string) =>
   decode(Array.from(p.matchAll(TEXT_RUN), (m) => m[1]).join(""));
 
-const isHeading = (text: string) =>
-  text.length > 0 && text.length <= 40 && (/^[A-Z][A-Z &/]+$/.test(text) || SECTION_NAME.test(text));
+const isHeading = (raw: string) => {
+  const text = raw.replace(/:\s*$/, ""); // "Education:" is still Education
+  return text.length > 0 && text.length <= 40 && (/^[A-Z][A-Z &/]+$/.test(text) || SECTION_NAME.test(text));
+};
 
 const listLevel = (p: string) => p.match(/<w:ilvl w:val="(\d+)"/)?.[1] ?? "0";
 
