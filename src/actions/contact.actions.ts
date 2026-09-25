@@ -16,3 +16,8 @@ export {
   addJobContact,
   removeJobContact,
 } from "./contact/jobLinks";
+
+export {
+  importLinkedInConnections,
+  getNetworkForJob,
+} from "./contact/network";
