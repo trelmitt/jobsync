@@ -46,7 +46,7 @@ function answerFromApplyProfile(
   return null;
 }
 
-async function loadApplyProfile(userId: string): Promise<ApplyProfile> {
+export async function loadApplyProfile(userId: string): Promise<ApplyProfile> {
   const userSettings = await prisma.userSettings.findUnique({ where: { userId } });
   if (!userSettings) return defaultUserSettings.applyProfile;
   return {
