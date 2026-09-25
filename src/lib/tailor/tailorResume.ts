@@ -6,17 +6,16 @@ import { getModel } from "@/lib/ai";
 import { getUserAiSettings } from "@/lib/scraper/automation-run/aiSettings";
 import { removeResumeFile, saveResumeUpload } from "@/lib/resumeFiles";
 import {
-  applyEdits,
+  applyOrders,
   loadDocumentXml,
   readStructure,
-  validateEdits,
+  ordersFromScores,
   writeDocumentXml,
 } from "./docx";
 import { TAILOR_SYSTEM_PROMPT, buildTailorPrompt, parseTailorJson } from "./prompt";
 
 export interface TailorResult {
   resumeId: string;
-  summaryChanged: boolean;
   groupsReordered: number;
   rejected: string[];
 }
@@ -62,10 +61,10 @@ export async function tailorResumeForJob(jobId: string, userId: string): Promise
   });
 
   const raw = parseTailorJson(result.text);
-  const { edits, rejected } = validateEdits(raw, structure);
+  const { orders, rejected } = ordersFromScores(raw, structure);
   if (raw === null) rejected.push("model reply was not valid JSON; kept the original");
 
-  const out = await writeDocumentXml(zip, applyEdits(xml, structure, edits));
+  const out = await writeDocumentXml(zip, applyOrders(xml, structure, orders));
   const safe = `${company} ${jobTitle}`.replace(/[^\w]+/g, "_").slice(0, 60);
   const upload = await saveResumeUpload(`Tailored_${safe}.docx`, out);
 
@@ -104,8 +103,7 @@ export async function tailorResumeForJob(jobId: string, userId: string): Promise
 
   return {
     resumeId: tailored.id,
-    summaryChanged: edits.summary !== undefined,
-    groupsReordered: (edits.orders ?? []).filter((o) => o.some((v, i) => v !== i)).length,
+    groupsReordered: orders.filter((o) => o.some((v, i) => v !== i)).length,
     rejected,
   };
 }
