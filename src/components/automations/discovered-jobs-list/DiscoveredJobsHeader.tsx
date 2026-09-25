@@ -2,7 +2,7 @@
 
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ListFilter, Trash2 } from "lucide-react";
+import { ListFilter, Sparkles, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -22,6 +22,9 @@ interface DiscoveredJobsHeaderProps {
   onClear: () => void;
   statusFilter: DiscoveryStatus[];
   onStatusFilterChange: (filter: DiscoveryStatus[]) => void;
+  unscoredCount: number;
+  analyzeAllDisabled: boolean;
+  onAnalyzeAll: () => void;
 }
 
 export function DiscoveredJobsHeader({
@@ -31,6 +34,9 @@ export function DiscoveredJobsHeader({
   onClear,
   statusFilter,
   onStatusFilterChange,
+  unscoredCount,
+  analyzeAllDisabled,
+  onAnalyzeAll,
 }: DiscoveredJobsHeaderProps) {
   const toggleStatusFilter = (status: DiscoveryStatus, checked: boolean) => {
     onStatusFilterChange(
@@ -50,6 +56,17 @@ export function DiscoveredJobsHeader({
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {unscoredCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAnalyzeAll}
+              disabled={analyzeAllDisabled}
+            >
+              <Sparkles className="h-4 w-4 mr-1.5" />
+              Analyze {unscoredCount} unscored
+            </Button>
+          )}
           {showClear && (
             <Button variant="outline" size="sm" onClick={onClear}>
               <Trash2 className="h-4 w-4 mr-1.5" />
