@@ -4,6 +4,7 @@ import {
   getActivityDataForPeriod,
   getJobsActivityForPeriod,
   getActivityCalendarData,
+  getFollowUpsDue,
 } from "@/actions/dashboard.actions";
 import { APP_CONSTANTS } from "@/lib/constants";
 import { getCurrentUser } from "@/utils/user.utils";
@@ -529,6 +530,28 @@ describe("Dashboard Actions", () => {
 
       await expect(getJobsActivitySummary(7)).rejects.toThrow(
         "Not authenticated",
+      );
+    });
+  });
+
+  describe("getFollowUpsDue", () => {
+    it("keeps only applications with a step due, tagged with that step", async () => {
+      (getCurrentUser as any).mockResolvedValue(mockUser);
+      const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
+      (prisma.job.findMany as any).mockResolvedValue([
+        { id: "due", appliedDate: daysAgo(4), Notes: [] },
+        { id: "touched", appliedDate: daysAgo(4), Notes: [{ createdAt: daysAgo(0) }] },
+        { id: "fresh", appliedDate: daysAgo(1), Notes: [] },
+      ]);
+
+      const result = await getFollowUpsDue();
+
+      expect(result).toEqual([{ id: "due", appliedDate: expect.any(Date), step: 3 }]);
+      expect(prisma.job.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ userId: "user-id", applied: true, Interview: { none: {} } }),
+          include: expect.objectContaining({ Notes: expect.objectContaining({ orderBy: { createdAt: "desc" } }) }),
+        }),
       );
     });
   });
