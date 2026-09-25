@@ -21,7 +21,10 @@ const STEP_LABEL: Record<number, string> = {
 };
 
 export function FollowUpsSection({ jobs }: { jobs: FollowUp[] }) {
-  const [list, setList] = useState(jobs);
+  // Derived from props so a refresh shows newly due jobs; the key includes the
+  // step so logging day 3 doesn't hide day 7 for the same job.
+  const [done, setDone] = useState<Set<string>>(() => new Set());
+  const list = jobs.filter((j) => !done.has(`${j.id}:${j.step}`));
   const [isPending, startTransition] = useTransition();
 
   if (list.length === 0) return null;
@@ -32,7 +35,7 @@ export function FollowUpsSection({ jobs }: { jobs: FollowUp[] }) {
       const result = await addNote({ jobId: job.id, content: `Followed up (day ${job.step})` });
       toastActionResult(result, {
         success: "Follow-up logged",
-        onSuccess: () => setList((prev) => prev.filter((j) => j.id !== job.id)),
+        onSuccess: () => setDone((prev) => new Set(prev).add(`${job.id}:${job.step}`)),
       });
     });
   };
