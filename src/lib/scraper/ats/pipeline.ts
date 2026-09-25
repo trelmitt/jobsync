@@ -91,7 +91,8 @@ export function runAtsPipeline(
   const capped = ranked.slice(0, cap);
 
   // The prior reorders only inside the cap: it picks which jobs get the LLM
-  // call, never which jobs get saved.
+  // call, and never lets a job past the cap (with saveUnanalyzed off, the
+  // non-top-K ones aren't saved either way).
   const prior = options?.prior;
   const ordered = prior
     ? capped

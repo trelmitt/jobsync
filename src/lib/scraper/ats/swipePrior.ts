@@ -5,11 +5,13 @@ import { tokenize } from "./rank";
 // only: swipes from one search would otherwise boost that search's roles in
 // another (AE-era accepts lifting Enterprise AE over RevOps in a J2 run).
 // Only reorders the jobs inside the save cap, so it decides which get the LLM
-// call; it never drops one. Offline on 252 real swipes (51 accepts, 201
-// dismisses): leave-one-out AUC 0.89; it pushes down 164 of the dismissed jobs
-// and 3 of the accepted ones.
-// ponytail: title-only naive-Bayes log-odds. Add description terms if title
-// words stop separating accepts from dismisses.
+// call. With "save unanalyzed" on it never drops one; with it off, a demoted
+// job isn't saved this run and competes again on the next. Offline on 252 real
+// swipes (51 accepts, 201 dismisses): leave-one-out AUC 0.89; it pushes down
+// 164 of the dismissed jobs and 3 of the accepted ones.
+// ponytail: title-only naive-Bayes log-odds, retrained every run from whatever
+// swipes still exist (the Discovered "Clear" button deletes dismissals). Add
+// description terms if title words stop separating accepts from dismisses.
 
 const SHRINK = 2; // pseudo-swipes pulling each word toward the overall accept rate
 // Rarer words are noise: three accepted CEE jobs made "Europe" look like a
