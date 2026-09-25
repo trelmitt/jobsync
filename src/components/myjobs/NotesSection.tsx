@@ -12,12 +12,15 @@ import { toastActionResult } from "@/lib/toast";
 type NotesSectionProps = {
   jobId: string;
   openTrigger?: number;
+  // Bumped by the parent when a note was written elsewhere (interview prep).
+  reloadTrigger?: number;
   onCountChange?: (count: number) => void;
 };
 
 export function NotesSection({
   jobId,
   openTrigger,
+  reloadTrigger,
   onCountChange,
 }: NotesSectionProps) {
   const [notes, setNotes] = useState<NoteResponse[]>([]);
@@ -36,7 +39,7 @@ export function NotesSection({
 
   useEffect(() => {
     loadNotes();
-  }, [loadNotes]);
+  }, [loadNotes, reloadTrigger]);
 
   const handleEdit = (note: NoteResponse) => {
     setEditNote(note);
