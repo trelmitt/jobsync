@@ -1,5 +1,6 @@
 import type { BrowserContext, Page } from "playwright-core";
 import { getBrowser } from "./browser";
+import { guardEgress } from "./egress";
 import db from "@/lib/db";
 import { APP_CONSTANTS } from "@/lib/constants";
 
@@ -32,7 +33,9 @@ export async function openLiveSession(
   await closeLiveSession(applySessionId);
 
   const browser = await getBrowser();
-  const context = await browser.newContext();
+  // Service workers would fetch outside context.route, so they're blocked.
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  await guardEgress(context);
   const page = await context.newPage();
   store().set(applySessionId, { context, page, expiresAt: Date.now() + ttlMs });
   return page;
