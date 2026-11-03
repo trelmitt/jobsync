@@ -10,6 +10,10 @@ declare const globalThis: {
 function launch(): Promise<Browser> {
   return chromium.launch({
     headless: true,
+    // Playwright defaults this to false (--no-sandbox). The apply engine loads
+    // arbitrary third-party job pages, so keep Chromium's sandbox as the
+    // second wall behind the renderer.
+    chromiumSandbox: true,
     executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || undefined,
   });
 }

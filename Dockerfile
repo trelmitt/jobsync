@@ -33,8 +33,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Chromium for the apply-automation engine (src/lib/apply) — playwright-core
 # is runtime-only and doesn't bundle a browser download, so it drives this
-# system install via CHROMIUM_EXECUTABLE_PATH instead.
-RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+# system install via CHROMIUM_EXECUTABLE_PATH instead. Chromium comes from
+# edge/community: the Alpine 3.23 stable repo lags far behind upstream
+# security fixes (149.x while stable Chrome is 156.x), and this browser loads
+# untrusted third-party pages.
+RUN apk add --no-cache nss freetype harfbuzz ca-certificates ttf-freefont && \
+    apk add --no-cache \
+      --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main \
+      --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community \
+      chromium
 ENV CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 RUN addgroup --system --gid 1001 nodejs && \

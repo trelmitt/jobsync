@@ -33,6 +33,10 @@ services:
       - APPLY_ENGINE_ENABLED=${APPLY_ENGINE_ENABLED:-true}
     volumes:
       - ./jobsyncdb/data:/data
+    # Docker's default seccomp profile plus clone/unshare/setns namespace
+    # flags, so the apply engine's Chromium can run with its sandbox on.
+    security_opt:
+      - seccomp=./seccomp-chromium.json
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
