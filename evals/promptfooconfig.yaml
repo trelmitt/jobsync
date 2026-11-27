@@ -10,14 +10,14 @@ providers:
       temperature: 0
       max_tokens: 8192
 
-  # Local Ollama via its OpenAI-compatible endpoint, not promptfoo's native
-  # ollama provider: only the openai provider merges the per-task config that
+  # Local macengine daemon (loopback, no token) via promptfoo's openai
+  # provider: only the openai provider merges the per-task config that
   # dispatch-prompt.ts returns for resume-import's JSON mode.
-  - id: openai:chat:qwen3.5:9b
-    label: ollama-qwen3.5-9b
+  - id: openai:chat:mlx-community--Qwen3.5-9B-4bit
+    label: macengine-qwen3.5-9b
     config:
-      apiBaseUrl: http://localhost:11434/v1
-      apiKey: ollama
+      apiBaseUrl: http://127.0.0.1:2500/v1
+      apiKey: macengine
       temperature: 0
       max_tokens: 8192
       # passthrough bypasses promptfoo's reasoning-model name check, which

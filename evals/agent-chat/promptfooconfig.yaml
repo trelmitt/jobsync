@@ -25,14 +25,16 @@ providers:
       tool_choice: auto
       tools: file://./tools.json
 
-  # Local Ollama via its NATIVE endpoint, which is what the app uses. The
-  # OpenAI-compatible /v1 shim cannot measure this surface: promptfoo's
-  # openai:chat provider checks message.reasoning FIRST and discards
-  # tool_calls when both are present, so every thinking tool call scores as
-  # "no tool call". Verified in promptfoo 0.121.19 and 0.122.0 alike.
-  - id: ollama:chat:qwen3.5:9b
-    label: ollama-qwen3.5-9b
+  # Local macengine daemon (loopback, no token), the app's local provider.
+  # Ollama's /v1 shim could not measure this surface (promptfoo's openai:chat
+  # checks message.reasoning first and drops tool_calls); macengine returns
+  # thinking as reasoning_content, the same field DeepSeek uses above.
+  - id: openai:chat:mlx-community--Qwen3.5-9B-4bit
+    label: macengine-qwen3.5-9b
     config:
+      apiBaseUrl: http://127.0.0.1:2500/v1
+      apiKey: macengine
+      showThinking: false
       # TEMPERATURES.ANALYSIS, which is what the route actually sends. It was
       # 0 here, and greedy sampling cannot see a failure the app hits under
       # sampling: qwen3.5 sends appliedDate:"" often enough to cost two dead
@@ -40,9 +42,8 @@ providers:
       # The price is that runs are no longer byte-identical, so a token-count
       # comparison across runs is no longer evidence of anything.
       temperature: 0.1
-      # Mirrors the route: providerOptions.ollama.think plus AGENT_CHAT_NUM_CTX.
-      think: true
-      num_ctx: 16384
+      max_tokens: 8192
+      tool_choice: auto
       tools: file://./tools.json
 
 prompts:
