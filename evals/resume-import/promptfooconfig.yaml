@@ -12,14 +12,14 @@ providers:
       response_format:
         type: json_object
 
-  # Local Ollama via its OpenAI-compatible endpoint. reasoning_effort goes in
+  # Local macengine daemon (loopback, no token). reasoning_effort goes in
   # passthrough to clear promptfoo's reasoning-model name check; disabling
   # thinking matches the app, where ollama-ai-provider-v2 sets think:false.
-  - id: openai:chat:qwen3.5:9b
-    label: ollama-qwen3.5-9b
+  - id: openai:chat:mlx-community--Qwen3.5-9B-4bit
+    label: macengine-qwen3.5-9b
     config:
-      apiBaseUrl: http://localhost:11434/v1
-      apiKey: ollama
+      apiBaseUrl: http://127.0.0.1:2500/v1
+      apiKey: macengine
       temperature: 0
       max_tokens: 8192
       passthrough:
